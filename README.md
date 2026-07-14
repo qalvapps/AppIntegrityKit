@@ -19,9 +19,10 @@ backend trust stores.
 The repository is in pre-release integration development. The v1 wire models,
 Swift client, strict Apple attestation/assertion verifier, Apple validation
 sample, and negative vectors are present. It is not yet approved for production
-traffic: an independent security review, atomic persistent storage adapters,
-physical-device validation, and a TestFlight production run remain release
-gates.
+traffic: the GoodTides reference integration passes physical-device development
+attestation, scoped-session, and private-worker access, but an independent
+security review, StoreKit production authorization, and a TestFlight production
+run remain release gates.
 
 ## Swift Package
 

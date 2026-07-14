@@ -18,27 +18,30 @@
 - [x] Verify assertion signature, RP ID, exact client-data binding, extensions, and
   monotonically increasing counter.
 - [x] Add Apple’s official sample and tamper/replay vectors.
-- [ ] Validate current assertion extension bytes from a physical development
-  device and TestFlight production build.
+- [x] Validate current assertion signature and extension bytes from a physical
+  development device, including Apple's prefixed extension schema.
+- [ ] Validate assertion bytes from a TestFlight production build.
 - [ ] Obtain an independent security review before production use.
 
 ## Phase 2 — GoodTides reference backend
 
-- [ ] Create public `goodtides-api` Cloud Run edge with no provider keys.
-- [ ] Create Firestore in the reviewed permanent location.
-- [ ] Implement atomic challenge, key, counter, session, revocation, and quota
+- [x] Create public `goodtides-api` Cloud Run edge with no provider keys.
+- [x] Create Firestore in the reviewed permanent location.
+- [x] Implement atomic challenge, key, counter, session, revocation, and quota
   adapters.
-- [ ] Invoke private `tide-data-broker` with Google service identity.
-- [ ] Change precise-coordinate forecast input from URL query to POST body.
+- [x] Invoke private `tide-data-broker` with Google service identity.
+- [x] Change precise-coordinate forecast input from URL query to POST body.
 - [ ] Add StoreKit JWS verification as a separate authorization gate.
 
 ## Phase 3 — TideTables reference client
 
-- [ ] Enable App Attest on the iOS App ID.
-- [ ] Integrate the package behind TideTables’ provider abstraction.
-- [ ] Keep widgets, intents, and Live Activities cache-only.
+- [x] Enable App Attest on the iOS App ID.
+- [x] Integrate the package behind TideTables’ provider abstraction.
+- [x] Keep widgets, intents, and Live Activities cache-only.
 - [ ] Add an independent watch identity only if watch live networking remains.
-- [ ] Validate development on device and production through TestFlight.
+- [x] Validate development on a physical device through the complete GoodTides
+  edge and private broker.
+- [ ] Validate production through TestFlight.
 
 ## Phase 4 — Recipeez adoption
 

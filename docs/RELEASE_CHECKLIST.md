@@ -19,13 +19,15 @@
 - [ ] The verifier receives independent security review.
 - [x] Assertion signature, RP ID, extension, counter, and exact client-data
   validation are implemented.
-- [ ] GoodTides persistence performs atomic challenge consumption and counter
+- [x] GoodTides persistence performs atomic challenge consumption and counter
   advancement.
-- [ ] A physical iPhone development-environment registration/session succeeds.
-- [ ] Reinstall, pending-key retry, unknown-key recovery, replay, expiry, and
-  concurrent renewal cases are verified.
+- [x] A physical iPhone development-environment registration/session succeeds.
+- [x] Equivalent concurrent first-session and renewal requests are coalesced,
+  while non-equivalent requests run in sequence.
+- [ ] Reinstall, pending-key retry, unknown-key recovery, replay, and expiry are
+  verified on physical/TestFlight builds.
 - [ ] A TestFlight production-environment registration/session succeeds.
-- [ ] TideTables contains no reusable GoodTides or provider credential.
+- [x] TideTables contains no reusable GoodTides or provider credential.
 
 ## Before 1.0.0
 
