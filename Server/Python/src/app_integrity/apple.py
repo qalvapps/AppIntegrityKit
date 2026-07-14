@@ -412,7 +412,20 @@ def _validate_extensions(
     application: AllowedApplication,
 ) -> tuple[int, str]:
     if category_key not in extensions or bundle_key not in extensions:
-        raise AppAttestVerificationError("required App Attest extensions are missing")
+        known_keys = sorted(
+            key
+            for key in {
+                "validationCategory",
+                "bundleVersion",
+                "apple_validation_category_01",
+                "apple_bundle_version_01",
+            }
+            if key in extensions
+        )
+        schema = ",".join(known_keys) if known_keys else "none"
+        raise AppAttestVerificationError(
+            f"required App Attest extensions are missing; known keys present: {schema}"
+        )
     category_value = extensions[category_key]
     if isinstance(category_value, bytes) and len(category_value) == 4:
         category = int.from_bytes(category_value, "little")
