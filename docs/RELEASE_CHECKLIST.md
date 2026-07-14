@@ -14,10 +14,11 @@
 
 ## Before 0.1.0
 
-- [ ] Full Apple attestation-object validation is implemented and independently
-  reviewed against Apple’s validation guide.
-- [ ] Assertion signature, RP ID, extension, counter, and challenge validation
-  are complete.
+- [x] Full Apple attestation-object validation is implemented against Apple’s
+  validation guide and official sample.
+- [ ] The verifier receives independent security review.
+- [x] Assertion signature, RP ID, extension, counter, and exact client-data
+  validation are implemented.
 - [ ] GoodTides persistence performs atomic challenge consumption and counter
   advancement.
 - [ ] A physical iPhone development-environment registration/session succeeds.
@@ -34,4 +35,3 @@
 - [ ] Revocation, rate limits, entitlement verification, privacy logging, and
   operational alerts are exercised in production-like environments.
 - [ ] External or independent security review findings are resolved.
-

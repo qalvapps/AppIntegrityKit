@@ -16,12 +16,12 @@ backend trust stores.
 
 ## Status
 
-The repository is in pre-release protocol-foundation development. The v1 wire
-models, deterministic canonical client-data vector, Swift orchestration ports,
-and fail-closed Python verifier ports are present. It is not yet approved for
-production traffic: full Apple attestation-object verification, persistent
-storage adapters, physical-device validation, and a TestFlight production run
-remain release gates.
+The repository is in pre-release integration development. The v1 wire models,
+Swift client, strict Apple attestation/assertion verifier, Apple validation
+sample, and negative vectors are present. It is not yet approved for production
+traffic: an independent security review, atomic persistent storage adapters,
+physical-device validation, and a TestFlight production run remain release
+gates.
 
 ## Swift Package
 
@@ -68,4 +68,3 @@ downstream service access.
 
 Read [the threat model](docs/agentic/AppIntegrityKit_Threat_Model.md) and
 [protocol v1](Protocol/v1.md) before changing any signed bytes or verifier rule.
-

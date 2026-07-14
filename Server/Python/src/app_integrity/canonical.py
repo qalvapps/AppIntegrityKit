@@ -33,7 +33,12 @@ def b64url_encode(data: bytes) -> str:
 
 
 def b64url_decode(value: str, *, field: str = "binary value") -> bytes:
-    if not isinstance(value, str) or not value or "=" in value or not _BASE64URL.fullmatch(value):
+    if (
+        not isinstance(value, str)
+        or not value
+        or "=" in value
+        or not _BASE64URL.fullmatch(value)
+    ):
         raise ProtocolValidationError(f"{field} is not unpadded base64url")
     padded = value + ("=" * (-len(value) % 4))
     try:
@@ -62,15 +67,21 @@ def parse_session_client_data(raw: bytes) -> SessionClientData:
     missing = _REQUIRED_FIELDS - fields
     unexpected = fields - _REQUIRED_FIELDS - _OPTIONAL_FIELDS
     if missing:
-        raise ProtocolValidationError(f"clientData is missing fields: {sorted(missing)}")
+        raise ProtocolValidationError(
+            f"clientData is missing fields: {sorted(missing)}"
+        )
     if unexpected:
-        raise ProtocolValidationError(f"clientData has unexpected fields: {sorted(unexpected)}")
+        raise ProtocolValidationError(
+            f"clientData has unexpected fields: {sorted(unexpected)}"
+        )
 
     version = payload["protocolVersion"]
     if type(version) is not int or version != PROTOCOL_VERSION:
         raise ProtocolValidationError("unsupported protocolVersion")
 
-    application_id = _bounded_ascii_string(payload["applicationID"], "applicationID", 128)
+    application_id = _bounded_ascii_string(
+        payload["applicationID"], "applicationID", 128
+    )
     challenge_id = _bounded_ascii_string(payload["challengeID"], "challengeID", 256)
     challenge = _bounded_ascii_string(payload["challenge"], "challenge", 256)
     if len(b64url_decode(challenge, field="challenge")) < 32:
@@ -81,9 +92,7 @@ def parse_session_client_data(raw: bytes) -> SessionClientData:
     if not isinstance(scopes_value, list) or not scopes_value:
         raise ProtocolValidationError("requestedScopes must be a non-empty array")
     if not all(
-        isinstance(scope, str)
-        and 0 < len(scope) <= 128
-        and scope.isascii()
+        isinstance(scope, str) and 0 < len(scope) <= 128 and scope.isascii()
         for scope in scopes_value
     ):
         raise ProtocolValidationError("requestedScopes contains an invalid scope")

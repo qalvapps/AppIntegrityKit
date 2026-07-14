@@ -21,7 +21,16 @@ swift test \
   --scratch-path "${TMP_ROOT}/swift"
 
 python3 -m venv "${PYTHON_VENV}"
+"${PYTHON_VENV}/bin/python" -m pip install --quiet --upgrade "pip>=26.1.2,<27"
 "${PYTHON_VENV}/bin/pip" install --quiet -e "${ROOT}/Server/Python[dev]"
+RUFF_CACHE_DIR="${TMP_ROOT}/ruff" \
+  "${PYTHON_VENV}/bin/ruff" check \
+  "${ROOT}/Server/Python/src" \
+  "${ROOT}/Server/Python/tests"
+RUFF_CACHE_DIR="${TMP_ROOT}/ruff" \
+  "${PYTHON_VENV}/bin/ruff" format --check \
+  "${ROOT}/Server/Python/src" \
+  "${ROOT}/Server/Python/tests"
 PYTHONDONTWRITEBYTECODE=1 \
   "${PYTHON_VENV}/bin/pytest" \
   -p no:cacheprovider \

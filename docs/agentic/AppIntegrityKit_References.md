@@ -5,6 +5,7 @@ Primary implementation references:
 - https://developer.apple.com/documentation/devicecheck/establishing-your-app-s-integrity
 - https://developer.apple.com/documentation/devicecheck/validating-apps-that-connect-to-your-server
 - https://developer.apple.com/documentation/devicecheck/attestation-object-validation-guide
+- https://www.apple.com/certificateauthority/Apple_App_Attestation_Root_CA.pem
 - https://developer.apple.com/documentation/devicecheck/preparing-to-use-the-app-attest-service
 - https://developer.apple.com/documentation/devicecheck/dcappattestservice/issupported
 - https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.devicecheck.appattest-environment
@@ -16,3 +17,6 @@ The old local `secure-ai-proxy` and app-specific attestation experiments are
 historical research only. They are not sources for production verification code
 or security policy.
 
+The Apple validation guide and pinned App Attestation root were rechecked on
+2026-07-14. The official guide sample is vendored only as an offline regression
+fixture with its source and retrieval date.

@@ -12,11 +12,14 @@ license = { text = "Proprietary" }
 authors = [
   { name = "Qalv Apps" }
 ]
-dependencies = []
+dependencies = [
+  "cryptography>=49.0,<50"
+]
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=8.3,<10"
+  "pytest>=8.3,<10",
+  "ruff>=0.15.21,<0.16"
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -25,4 +28,3 @@ packages = ["src/app_integrity"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
-

@@ -1,5 +1,10 @@
 """AppIntegrityKit server verification foundations."""
 
+from .apple import (
+    AppAttestVerificationError,
+    AppleAssertionObjectVerifier,
+    AppleAttestationObjectVerifier,
+)
 from .canonical import (
     ProtocolValidationError,
     b64url_decode,
@@ -12,6 +17,7 @@ from .canonical import (
 from .models import (
     AllowedApplication,
     AppAttestEnvironment,
+    AppAttestPlatform,
     SessionClientData,
     VerifiedAssertion,
     VerifiedAttestation,
@@ -19,7 +25,11 @@ from .models import (
 
 __all__ = [
     "AllowedApplication",
+    "AppAttestPlatform",
     "AppAttestEnvironment",
+    "AppAttestVerificationError",
+    "AppleAssertionObjectVerifier",
+    "AppleAttestationObjectVerifier",
     "ProtocolValidationError",
     "SessionClientData",
     "VerifiedAssertion",

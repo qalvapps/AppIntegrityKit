@@ -11,13 +11,15 @@
 
 ## Phase 1 — complete Apple verification
 
-- [ ] Implement all steps in Apple’s Attestation Object Validation Guide.
-- [ ] Verify CBOR structure, Apple certificate chain, nonce extension, key ID,
+- [x] Implement all applicable steps in Apple’s Attestation Object Validation Guide.
+- [x] Verify CBOR structure, Apple certificate chain, nonce extension, key ID,
   RP ID, AAGUID/environment, counter zero, validation category, and bundle
   version.
-- [ ] Verify assertion signature, RP ID, challenge binding, extensions, and
+- [x] Verify assertion signature, RP ID, exact client-data binding, extensions, and
   monotonically increasing counter.
-- [ ] Add Apple’s official sample and exhaustive tamper vectors.
+- [x] Add Apple’s official sample and tamper/replay vectors.
+- [ ] Validate current assertion extension bytes from a physical development
+  device and TestFlight production build.
 - [ ] Obtain an independent security review before production use.
 
 ## Phase 2 — GoodTides reference backend
@@ -52,4 +54,3 @@
 - `0.2.0`: Recipeez/Share Extension support.
 - `0.3.0`: entitlement helpers and operational hardening.
 - `1.0.0`: both products production-proven with stable public API.
-

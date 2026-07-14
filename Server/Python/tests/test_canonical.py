@@ -73,10 +73,14 @@ def test_parser_rejects_noncanonical_json_and_duplicate_keys() -> None:
     with pytest.raises(ProtocolValidationError, match="not canonical JSON"):
         parse_session_client_data(spaced)
 
-    duplicate = vector["expected"]["clientDataUTF8"].replace(
-        '"applicationID":"goodtides-ios",',
-        '"applicationID":"goodtides-ios","applicationID":"other",',
-    ).encode()
+    duplicate = (
+        vector["expected"]["clientDataUTF8"]
+        .replace(
+            '"applicationID":"goodtides-ios",',
+            '"applicationID":"goodtides-ios","applicationID":"other",',
+        )
+        .encode()
+    )
     with pytest.raises(ProtocolValidationError, match="duplicate JSON field"):
         parse_session_client_data(duplicate)
 

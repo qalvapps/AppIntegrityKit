@@ -19,7 +19,7 @@ class AttestationObjectVerifier(Protocol):
         *,
         attestation_object: bytes,
         key_id: str,
-        challenge: bytes,
+        client_data_hash: bytes,
         application: AllowedApplication,
     ) -> VerifiedAttestation: ...
 
@@ -89,4 +89,3 @@ class SessionIssuer(Protocol):
         scopes: frozenset[str],
         expires_at: datetime,
     ) -> str: ...
-

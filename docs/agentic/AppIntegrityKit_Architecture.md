@@ -32,17 +32,22 @@ backends create separate instances.
 
 - `models`: language-neutral protocol values.
 - `canonical`: strict base64url and exact-client-data parsing/binding.
+- `_cbor`: bounded, duplicate-rejecting CBOR decoding for security artifacts.
+- `apple`: Apple-root-pinned attestation and assertion cryptographic validation.
 - `ports`: persistence, cryptographic verifier, clock, and token interfaces.
-- future `apple_attestation`: Apple certificate/CBOR/nonce validation.
 - future `service`: atomic registration and session policy orchestration.
 - product adapters: FastAPI, Firestore, rate limiting, StoreKit, and cloud IAM.
 
 The core Python package does not know about GoodTides, Recipeez, FastAPI, or
 Firestore. Product backends compose those adapters and own authorization.
 
+The attestation verifier accepts the exact `clientDataHash` bytes supplied to
+Apple. For protocol v1, the service layer derives those bytes as
+`SHA256(base64url_decode(challenge))`; keeping that derivation outside the
+cryptographic primitive prevents accidental double hashing.
+
 ## Distribution
 
 SwiftPM is primary. `scripts/make_xcframework.sh` creates an XCFramework for
 binary consumers, and `scripts/create_docs.sh` generates DocC. Neither artifact
 contains product configuration or credentials.
-
