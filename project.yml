@@ -1,0 +1,42 @@
+name: AppIntegrityKit
+options:
+  bundleIdPrefix: com.qalvapps
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    BUILD_LIBRARY_FOR_DISTRIBUTION: "YES"
+    CODE_SIGNING_ALLOWED: "NO"
+targets:
+  AppIntegrityKit:
+    type: framework
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - AppIntegrityKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.qalvapps.AppIntegrityKit
+        SKIP_INSTALL: "NO"
+  AppIntegrityKitTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - AppIntegrityKitTests
+    dependencies:
+      - target: AppIntegrityKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.qalvapps.AppIntegrityKitTests
+schemes:
+  AppIntegrityKit:
+    shared: true
+    build:
+      targets:
+        AppIntegrityKit: all
+        AppIntegrityKitTests: [test]
+    test:
+      targets:
+        - AppIntegrityKitTests

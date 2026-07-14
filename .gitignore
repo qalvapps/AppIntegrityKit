@@ -1,0 +1,13 @@
+.DS_Store
+.build/
+.swiftpm/
+build/
+DerivedData/
+*.xcresult
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+AppIntegrityKit.xcodeproj/
+Server/Python/.venv/
+Server/Python/.pytest_cache/
+Server/Python/**/__pycache__/
+Server/Python/**/*.pyc

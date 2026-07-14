@@ -1,0 +1,22 @@
+{
+  "name": "session-client-data-v1",
+  "inputs": {
+    "protocolVersion": 1,
+    "applicationID": "goodtides-ios",
+    "challengeID": "challenge-123",
+    "challenge": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    "keyID": "key-123",
+    "requestedScopes": [
+      "tides:licensed-global",
+      "tides:forecast",
+      "tides:forecast"
+    ],
+    "entitlementEvidence": "dGVzdC1lbnRpdGxlbWVudA"
+  },
+  "expected": {
+    "entitlementEvidenceSHA256": "lfV7OL7T4P56i7FwzOinaObcN6wPxNrXJ_WNtJbXR34",
+    "clientDataUTF8": "{\"applicationID\":\"goodtides-ios\",\"challenge\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8\",\"challengeID\":\"challenge-123\",\"entitlementEvidenceSHA256\":\"lfV7OL7T4P56i7FwzOinaObcN6wPxNrXJ_WNtJbXR34\",\"keyID\":\"key-123\",\"protocolVersion\":1,\"requestedScopes\":[\"tides:forecast\",\"tides:licensed-global\"]}",
+    "clientDataBase64URL": "eyJhcHBsaWNhdGlvbklEIjoiZ29vZHRpZGVzLWlvcyIsImNoYWxsZW5nZSI6IkFBRUNBd1FGQmdjSUNRb0xEQTBPRHhBUkVoTVVGUllYR0JrYUd4d2RIaDgiLCJjaGFsbGVuZ2VJRCI6ImNoYWxsZW5nZS0xMjMiLCJlbnRpdGxlbWVudEV2aWRlbmNlU0hBMjU2IjoibGZWN09MN1Q0UDU2aTdGd3pPaW5hT2JjTjZ3UHhOclhKX1dOdEpiWFIzNCIsImtleUlEIjoia2V5LTEyMyIsInByb3RvY29sVmVyc2lvbiI6MSwicmVxdWVzdGVkU2NvcGVzIjpbInRpZGVzOmZvcmVjYXN0IiwidGlkZXM6bGljZW5zZWQtZ2xvYmFsIl19",
+    "clientDataSHA256": "mNPYtyQMGusTYvwIRRODG7OScPZiyE7qJ3NqMWu3oUQ"
+  }
+}
