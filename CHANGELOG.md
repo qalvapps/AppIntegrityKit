@@ -24,6 +24,9 @@
 - Assertion verification follows Apple's two-stage construction by forming the
   App Attest nonce first and then verifying ECDSA-with-SHA256 over those nonce
   bytes, with a regression test rejecting the former prehashed interpretation.
+- Assertion extension validation accepts exactly one complete Apple schema:
+  either the current unprefixed names or the prefixed names observed on a
+  physical development device; ambiguous and partial schemas fail closed.
 
 ### Not production-ready
 

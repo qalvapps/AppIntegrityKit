@@ -191,11 +191,27 @@ def _make_assertion(
     category: int = 4,
     bundle_version: str = "1",
     rp_id: str | None = None,
+    extension_style: str = "current",
 ) -> tuple[bytes, bytes]:
-    extensions = {
-        "validationCategory": category.to_bytes(4, "little"),
-        "bundleVersion": bundle_version,
-    }
+    if extension_style == "current":
+        extensions = {
+            "validationCategory": category.to_bytes(4, "little"),
+            "bundleVersion": bundle_version,
+        }
+    elif extension_style == "prefixed":
+        extensions = {
+            "apple_validation_category_01": category.to_bytes(4, "little"),
+            "apple_bundle_version_01": bundle_version,
+        }
+    elif extension_style == "ambiguous":
+        extensions = {
+            "validationCategory": category.to_bytes(4, "little"),
+            "bundleVersion": bundle_version,
+            "apple_validation_category_01": category.to_bytes(4, "little"),
+            "apple_bundle_version_01": bundle_version,
+        }
+    else:
+        raise ValueError("unsupported test extension style")
     auth_data = (
         hashlib.sha256((rp_id or application.app_id).encode("utf-8")).digest()
         + b"\x80"
@@ -242,6 +258,53 @@ def test_assertion_verifies_signature_identity_extensions_and_counter() -> None:
     assert result.counter == 7
     assert result.validation_category == 4
     assert result.bundle_version == "1"
+
+
+def test_assertion_accepts_apple_prefixed_extension_schema() -> None:
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    exact_client_data, client_data = _session_client_data(private_key)
+    application = _assertion_application()
+    assertion, public_key = _make_assertion(
+        private_key,
+        exact_client_data=exact_client_data,
+        application=application,
+        extension_style="prefixed",
+    )
+
+    result = AppleAssertionObjectVerifier().verify(
+        assertion_object=assertion,
+        exact_client_data=exact_client_data,
+        client_data=client_data,
+        public_key_x963=public_key,
+        previous_counter=0,
+        application=application,
+    )
+
+    assert result.counter == 1
+    assert result.validation_category == 4
+    assert result.bundle_version == "1"
+
+
+def test_assertion_rejects_ambiguous_extension_schema() -> None:
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    exact_client_data, client_data = _session_client_data(private_key)
+    application = _assertion_application()
+    assertion, public_key = _make_assertion(
+        private_key,
+        exact_client_data=exact_client_data,
+        application=application,
+        extension_style="ambiguous",
+    )
+
+    with pytest.raises(AppAttestVerificationError, match="ambiguous"):
+        AppleAssertionObjectVerifier().verify(
+            assertion_object=assertion,
+            exact_client_data=exact_client_data,
+            client_data=client_data,
+            public_key_x963=public_key,
+            previous_counter=0,
+            application=application,
+        )
 
 
 def test_assertion_rejects_signature_that_treats_apple_nonce_as_prehashed() -> None:

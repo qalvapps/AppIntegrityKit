@@ -309,10 +309,8 @@ class AppleAssertionObjectVerifier:
             )
             if end != len(auth_data) or type(extensions) is not dict:
                 raise AppAttestVerificationError("assertion extensions are invalid")
-            category, bundle_version = _validate_extensions(
+            category, bundle_version = _validate_assertion_extensions(
                 extensions,
-                category_key="validationCategory",
-                bundle_key="bundleVersion",
                 application=application,
             )
             return VerifiedAssertion(
@@ -412,20 +410,7 @@ def _validate_extensions(
     application: AllowedApplication,
 ) -> tuple[int, str]:
     if category_key not in extensions or bundle_key not in extensions:
-        known_keys = sorted(
-            key
-            for key in {
-                "validationCategory",
-                "bundleVersion",
-                "apple_validation_category_01",
-                "apple_bundle_version_01",
-            }
-            if key in extensions
-        )
-        schema = ",".join(known_keys) if known_keys else "none"
-        raise AppAttestVerificationError(
-            f"required App Attest extensions are missing; known keys present: {schema}"
-        )
+        raise AppAttestVerificationError("required App Attest extensions are missing")
     category_value = extensions[category_key]
     if isinstance(category_value, bytes) and len(category_value) == 4:
         category = int.from_bytes(category_value, "little")
@@ -450,6 +435,35 @@ def _validate_extensions(
     if bundle_version not in application.allowed_bundle_versions:
         raise AppAttestVerificationError("bundle version is not allowed")
     return category, bundle_version
+
+
+def _validate_assertion_extensions(
+    extensions: dict[object, object],
+    *,
+    application: AllowedApplication,
+) -> tuple[int, str]:
+    schemas = (
+        ("validationCategory", "bundleVersion"),
+        ("apple_validation_category_01", "apple_bundle_version_01"),
+    )
+    known_keys = {key for schema in schemas for key in schema}
+    present_known_keys = {key for key in known_keys if key in extensions}
+    complete_schemas = [
+        schema
+        for schema in schemas
+        if schema[0] in extensions and schema[1] in extensions
+    ]
+    if len(complete_schemas) != 1 or len(present_known_keys) != 2:
+        raise AppAttestVerificationError(
+            "assertion extension schema is missing or ambiguous"
+        )
+    category_key, bundle_key = complete_schemas[0]
+    return _validate_extensions(
+        extensions,
+        category_key=category_key,
+        bundle_key=bundle_key,
+        application=application,
+    )
 
 
 def _exact_map(value: object, fields: set[str], name: str) -> dict[object, object]:
