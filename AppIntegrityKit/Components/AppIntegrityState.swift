@@ -9,7 +9,19 @@ actor AppIntegrityState {
         let credentialStore: any AppIntegrityCredentialStoring
     }
 
+    private struct SessionRequestKey: Equatable, Sendable {
+        let entitlementEvidenceSHA256: Data?
+        let forceRefresh: Bool
+    }
+
+    private struct PendingSession: Sendable {
+        let id: UUID
+        let requestKey: SessionRequestKey
+        let task: Task<AppIntegritySession, Error>
+    }
+
     private var runtime: Runtime?
+    private var pendingSession: PendingSession?
 
     func configure(
         configuration: AppIntegrityConfiguration,
@@ -34,13 +46,55 @@ actor AppIntegrityState {
         entitlementEvidence: Data?,
         forceRefresh: Bool
     ) async throws -> AppIntegritySession {
-        guard let runtime else {
-            throw AppIntegrityError.notConfigured
-        }
         if let entitlementEvidence, entitlementEvidence.count > 256 * 1_024 {
             throw AppIntegrityError.entitlementEvidenceTooLarge
         }
 
+        let requestKey = SessionRequestKey(
+            entitlementEvidenceSHA256: entitlementEvidence.map {
+                Data(SHA256.hash(data: $0))
+            },
+            forceRefresh: forceRefresh
+        )
+        while let pendingSession {
+            if pendingSession.requestKey == requestKey {
+                return try await pendingSession.task.value
+            }
+            _ = await pendingSession.task.result
+            clearPendingSession(pendingSession.id)
+        }
+
+        guard let runtime else {
+            throw AppIntegrityError.notConfigured
+        }
+        let operationID = UUID()
+        let task = Task { [self] in
+            try await establishSession(
+                runtime: runtime,
+                entitlementEvidence: entitlementEvidence,
+                forceRefresh: forceRefresh
+            )
+        }
+        pendingSession = PendingSession(
+            id: operationID,
+            requestKey: requestKey,
+            task: task
+        )
+        do {
+            let session = try await task.value
+            clearPendingSession(operationID)
+            return session
+        } catch {
+            clearPendingSession(operationID)
+            throw error
+        }
+    }
+
+    private func establishSession(
+        runtime: Runtime,
+        entitlementEvidence: Data?,
+        forceRefresh: Bool
+    ) async throws -> AppIntegritySession {
         let configuration = runtime.configuration
         if !forceRefresh,
            let stored = try await runtime.credentialStore.session(
@@ -107,6 +161,11 @@ actor AppIntegrityState {
             for: configuration.applicationID
         )
         return session
+    }
+
+    private func clearPendingSession(_ operationID: UUID) {
+        guard pendingSession?.id == operationID else { return }
+        pendingSession = nil
     }
 
     func invalidateSession() async throws {

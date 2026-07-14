@@ -74,6 +74,94 @@ struct AppIntegrityKitTests {
         )
     }
 
+    @Test func concurrentEquivalentSessionsShareOneRegistrationAndAssertion() async throws {
+        let transport = FakeTransport(challengeDelay: .milliseconds(25))
+        let appAttest = FakeAppAttestService(operationDelay: .milliseconds(25))
+        let store = InMemoryAppIntegrityCredentialStore()
+        let client = AppIntegrity()
+        try await client.configure(
+            Self.configuration(),
+            transport: transport,
+            appAttestService: appAttest,
+            credentialStore: store
+        )
+
+        let sessions = try await withThrowingTaskGroup(of: AppIntegritySession.self) { group in
+            for _ in 0..<8 {
+                group.addTask {
+                    try await client.session(entitlementEvidence: Data("same-evidence".utf8))
+                }
+            }
+            var sessions: [AppIntegritySession] = []
+            for try await session in group {
+                sessions.append(session)
+            }
+            return sessions
+        }
+
+        #expect(sessions.count == 8)
+        #expect(Set(sessions.map(\.token)).count == 1)
+        #expect(await appAttest.generateKeyCount == 1)
+        #expect(await appAttest.attestationHashes.count == 1)
+        #expect(await appAttest.assertionHashes.count == 1)
+        #expect(await transport.registrationRequests.count == 1)
+        #expect(await transport.sessionRequests.count == 1)
+    }
+
+    @Test func concurrentForceRefreshesShareOneNewAssertion() async throws {
+        let transport = FakeTransport(challengeDelay: .milliseconds(25))
+        let appAttest = FakeAppAttestService(operationDelay: .milliseconds(25))
+        let client = AppIntegrity()
+        try await client.configure(
+            Self.configuration(),
+            transport: transport,
+            appAttestService: appAttest,
+            credentialStore: InMemoryAppIntegrityCredentialStore()
+        )
+        _ = try await client.session()
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 0..<8 {
+                group.addTask {
+                    _ = try await client.session(forceRefresh: true)
+                }
+            }
+            try await group.waitForAll()
+        }
+
+        #expect(await appAttest.generateKeyCount == 1)
+        #expect(await appAttest.attestationHashes.count == 1)
+        #expect(await appAttest.assertionHashes.count == 2)
+        #expect(await transport.registrationRequests.count == 1)
+        #expect(await transport.sessionRequests.count == 2)
+    }
+
+    @Test func differentConcurrentSessionRequestsRunInSequence() async throws {
+        let transport = FakeTransport(challengeDelay: .milliseconds(25))
+        let appAttest = FakeAppAttestService(operationDelay: .milliseconds(25))
+        let client = AppIntegrity()
+        try await client.configure(
+            Self.configuration(),
+            transport: transport,
+            appAttestService: appAttest,
+            credentialStore: InMemoryAppIntegrityCredentialStore()
+        )
+
+        async let first = client.session(entitlementEvidence: Data("first".utf8))
+        try await Task.sleep(for: .milliseconds(10))
+        async let refreshed = client.session(
+            entitlementEvidence: Data("second".utf8),
+            forceRefresh: true
+        )
+        _ = try await (first, refreshed)
+
+        #expect(await appAttest.generateKeyCount == 1)
+        #expect(await appAttest.attestationHashes.count == 1)
+        #expect(await appAttest.assertionHashes.count == 2)
+        #expect(await transport.registrationRequests.count == 1)
+        #expect(await transport.sessionRequests.count == 2)
+    }
+
     @Test func pendingKeyIsPersistedBeforeAttestationCompletes() async throws {
         let transport = FakeTransport(registrationFailureCount: 1)
         let appAttest = FakeAppAttestService()
@@ -202,29 +290,40 @@ private struct SessionVector: Decodable {
 
 private actor FakeAppAttestService: AppAttestServicing {
     let supported: Bool
+    let operationDelay: Duration?
     private(set) var generateKeyCount = 0
     private(set) var attestationHashes: [Data] = []
     private(set) var assertionHashes: [Data] = []
 
-    init(supported: Bool = true) {
+    init(supported: Bool = true, operationDelay: Duration? = nil) {
         self.supported = supported
+        self.operationDelay = operationDelay
     }
 
     func isSupported() -> Bool {
         supported
     }
 
-    func generateKey() -> String {
+    func generateKey() async throws -> String {
+        if let operationDelay {
+            try await Task.sleep(for: operationDelay)
+        }
         generateKeyCount += 1
         return "key-123"
     }
 
-    func attestKey(_ keyID: String, clientDataHash: Data) -> Data {
+    func attestKey(_ keyID: String, clientDataHash: Data) async throws -> Data {
+        if let operationDelay {
+            try await Task.sleep(for: operationDelay)
+        }
         attestationHashes.append(clientDataHash)
         return Data("attestation".utf8)
     }
 
-    func generateAssertion(_ keyID: String, clientDataHash: Data) -> Data {
+    func generateAssertion(_ keyID: String, clientDataHash: Data) async throws -> Data {
+        if let operationDelay {
+            try await Task.sleep(for: operationDelay)
+        }
         assertionHashes.append(clientDataHash)
         return Data("assertion".utf8)
     }
@@ -235,15 +334,23 @@ private actor FakeTransport: AppIntegrityTransport {
     private(set) var registrationRequests: [AppIntegrityAttestationRequest] = []
     private(set) var sessionRequests: [AppIntegritySessionRequest] = []
     private var registrationFailureCount: Int
+    private let challengeDelay: Duration?
 
-    init(registrationFailureCount: Int = 0) {
+    init(
+        registrationFailureCount: Int = 0,
+        challengeDelay: Duration? = nil
+    ) {
         self.registrationFailureCount = registrationFailureCount
+        self.challengeDelay = challengeDelay
     }
 
     func requestChallenge(
         applicationID: String,
         purpose: AppIntegrityChallengePurpose
-    ) -> AppIntegrityChallenge {
+    ) async throws -> AppIntegrityChallenge {
+        if let challengeDelay {
+            try await Task.sleep(for: challengeDelay)
+        }
         challengeRequests.append(purpose)
         return AppIntegrityChallenge(
             protocolVersion: 1,

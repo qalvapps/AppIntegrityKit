@@ -28,6 +28,12 @@ The facade is immutable and `Sendable`; all mutable orchestration state is actor
 isolated. Apps may use `AppIntegrity.shared`, while tests and apps with multiple
 backends create separate instances.
 
+Equivalent in-flight session requests are coalesced into one App Attest and
+network operation. Requests with different entitlement evidence or refresh
+semantics run in sequence. This matters because actors are reentrant at
+`await`: actor isolation alone does not prevent two callers from overlapping
+key registration or advancing the same App Attest assertion counter.
+
 ## Python layers
 
 - `models`: language-neutral protocol values.

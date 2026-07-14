@@ -18,6 +18,9 @@
   signature, client-data, replay, and counter-rollback negative tests.
 - Threat model, architecture, project plan, DocC, XCFramework packaging, and
   repository verification scripts.
+- Equivalent in-flight session requests are coalesced, while requests with
+  different evidence or refresh semantics run in sequence so actor reentrancy
+  cannot overlap App Attest registration or assertion-counter work.
 
 ### Not production-ready
 
