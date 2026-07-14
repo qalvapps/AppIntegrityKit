@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec, utils
+from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import ExtensionOID, ObjectIdentifier
 from cryptography.x509.verification import (
     ExtensionPolicy,
@@ -285,7 +285,7 @@ class AppleAssertionObjectVerifier:
                 public_key.verify(
                     signature,
                     nonce,
-                    ec.ECDSA(utils.Prehashed(hashes.SHA256())),
+                    ec.ECDSA(hashes.SHA256()),
                 )
             except InvalidSignature as error:
                 raise AppAttestVerificationError(

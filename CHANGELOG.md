@@ -21,6 +21,9 @@
 - Equivalent in-flight session requests are coalesced, while requests with
   different evidence or refresh semantics run in sequence so actor reentrancy
   cannot overlap App Attest registration or assertion-counter work.
+- Assertion verification follows Apple's two-stage construction by forming the
+  App Attest nonce first and then verifying ECDSA-with-SHA256 over those nonce
+  bytes, with a regression test rejecting the former prehashed interpretation.
 
 ### Not production-ready
 

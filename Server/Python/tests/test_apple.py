@@ -207,7 +207,7 @@ def _make_assertion(
     ).digest()
     signature = private_key.sign(
         nonce,
-        ec.ECDSA(utils.Prehashed(hashes.SHA256())),
+        ec.ECDSA(hashes.SHA256()),
     )
     public_key_x963 = private_key.public_key().public_bytes(
         serialization.Encoding.X962,
@@ -242,6 +242,35 @@ def test_assertion_verifies_signature_identity_extensions_and_counter() -> None:
     assert result.counter == 7
     assert result.validation_category == 4
     assert result.bundle_version == "1"
+
+
+def test_assertion_rejects_signature_that_treats_apple_nonce_as_prehashed() -> None:
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    exact_client_data, client_data = _session_client_data(private_key)
+    application = _assertion_application()
+    assertion, public_key = _make_assertion(
+        private_key,
+        exact_client_data=exact_client_data,
+        application=application,
+    )
+    decoded = decode_cbor(assertion)
+    nonce = hashlib.sha256(
+        decoded["authenticatorData"] + hashlib.sha256(exact_client_data).digest()
+    ).digest()
+    decoded["signature"] = private_key.sign(
+        nonce,
+        ec.ECDSA(utils.Prehashed(hashes.SHA256())),
+    )
+
+    with pytest.raises(AppAttestVerificationError, match="signature"):
+        AppleAssertionObjectVerifier().verify(
+            assertion_object=_encode_cbor(decoded),
+            exact_client_data=exact_client_data,
+            client_data=client_data,
+            public_key_x963=public_key,
+            previous_counter=0,
+            application=application,
+        )
 
 
 @pytest.mark.parametrize(("counter", "previous"), [(0, 0), (7, 7), (6, 7)])
