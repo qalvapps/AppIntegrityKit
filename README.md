@@ -24,6 +24,17 @@ attestation, scoped-session, and private-worker access, but an independent
 security review, StoreKit production authorization, and a TestFlight production
 run remain release gates.
 
+## Codex integration workflow
+
+When adopting or hardening AppIntegrityKit in another Qalv app, invoke the
+personal Codex skill `$harden-ios-app-integrity`. It provides the app-integration,
+fail-closed Release configuration, built-product inspection, physical-device,
+and TestFlight verification workflow used by the reference implementations.
+
+The skill is an execution aid, not a specification. This repository's product
+specification, threat model, versioned protocol, architecture, and release
+checklist remain authoritative.
+
 ## Swift Package
 
 During local development:
