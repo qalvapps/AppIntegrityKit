@@ -1,5 +1,7 @@
 # AppIntegrityKit Agent Rules
 
+For SMImporter integrations, first read the [SMImporter living architecture](../SMImporterWS/docs/SMIMPORTER_ARCHITECTURE.md). If AppIntegrityKit work changes a shared SMImporter protocol, policy, privileged boundary, or verified integration state, update that contract, its review metadata, and its decision log in the same change. Run `make architecture-check` from `../SMImporterWS` after changing the shared contract or its references.
+
 Read these before changing the product:
 
 1. `docs/agentic/AppIntegrityKit_Product_Spec.md`
@@ -45,4 +47,3 @@ Read these before changing the product:
 Run `scripts/verify.sh`. Do not claim production readiness without physical
 development-environment attestation and TestFlight production-environment
 attestation evidence.
-
