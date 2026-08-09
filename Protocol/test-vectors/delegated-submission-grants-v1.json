@@ -1,0 +1,53 @@
+{
+  "name": "delegated-submission-grants-v1",
+  "protocolVersion": 1,
+  "issuedAt": "2026-08-09T12:00:00Z",
+  "authority": {
+    "applicationID": "fixture-ios",
+    "environment": "development",
+    "keyIDHash": "RRgerHdPKAVrtafFidanknheqgKzmBZiBhQim6gSs5I",
+    "sessionExpiresAt": "2026-08-09T12:15:00Z"
+  },
+  "policy": {
+    "operation": "fixture:submit",
+    "poolSize": 2,
+    "lifetimeSeconds": 300,
+    "useLimit": 1
+  },
+  "tokenMaterial": [
+    "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8"
+  ],
+  "expectedTokenHashes": [
+    "Yw3NKWbEM2aRElRIu7JbT_QSpJxzLbLIq8G4WBvXEN0",
+    "ctu3M2x2eAAj-D2kw1Xy7uqFczsT00d2l5F3kMEikIQ"
+  ],
+  "expectedExpiresAt": "2026-08-09T12:05:00Z",
+  "consumption": {
+    "token": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    "applicationID": "fixture-ios",
+    "environment": "development",
+    "operation": "fixture:submit",
+    "submissionID": "submission-001",
+    "requestBody": "eyJjb250cmFjdFZlcnNpb24iOjEsInN1Ym1pc3Npb25JRCI6InN1Ym1pc3Npb24tMDAxIiwidmFsdWUiOiJmaXh0dXJlIn0",
+    "requestDigest": "3nlz8qYU08FitYJZPVwdzUN-3b1wElOhBBA8NLTJG5A",
+    "changedRequestBody": "eyJjb250cmFjdFZlcnNpb24iOjEsInN1Ym1pc3Npb25JRCI6InN1Ym1pc3Npb24tMDAxIiwidmFsdWUiOiJjaGFuZ2VkIn0",
+    "changedRequestDigest": "iSeYXXdofsCqEY3Z0YmW6mm0LnGS9gu_Qg_WLe3XrJc",
+    "acceptanceID": "acceptance-001",
+    "consumeAt": "2026-08-09T12:01:00Z"
+  },
+  "cases": [
+    {"name":"first-consume","expected":"accepted"},
+    {"name":"same-request-replay","expected":"replayed"},
+    {"name":"changed-request-replay","expectedError":"grant_binding_mismatch"},
+    {"name":"expired","expectedError":"grant_expired"},
+    {"name":"revoked-grant","expectedError":"grant_revoked"},
+    {"name":"wrong-application","expectedError":"grant_binding_mismatch"},
+    {"name":"wrong-environment","expectedError":"grant_binding_mismatch"},
+    {"name":"wrong-operation","expectedError":"grant_binding_mismatch"},
+    {"name":"replaced-installation-key","expectedError":"installation_revoked"},
+    {"name":"exhausted","expectedError":"grant_exhausted"},
+    {"name":"store-unavailable","expectedError":"grant_store_unavailable"},
+    {"name":"issuance-quota-exhausted","expectedError":"grant_exhausted"}
+  ]
+}

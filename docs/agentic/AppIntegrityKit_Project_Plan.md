@@ -51,6 +51,18 @@
   Keychain access group.
 - [ ] Define the first-use flow when the extension runs before the main app.
 
+## Phase 5 — unsupported-extension delegated submission
+
+- [x] Define an additive one-use grant contract without changing v1 App Attest
+  or session signed bytes.
+- [x] Add a dedicated Swift shared-Keychain pool with exact local request
+  reservation and lost-response replay.
+- [x] Add framework-neutral Python issuance/consumption models and atomic store
+  ports with shared positive and negative vectors.
+- [ ] Integrate a product edge and extension, preserving independent product
+  quota and cost controls.
+- [ ] Verify physical development behavior and TestFlight production behavior.
+
 ## Release sequence
 
 - `0.1.0`: GoodTides physical-device reference implementation.

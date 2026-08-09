@@ -27,6 +27,9 @@
 - Assertion extension validation accepts exactly one complete Apple schema:
   either the current unprefixed names or the prefixed names observed on a
   physical development device; ambiguous and partial schemas fail closed.
+- Additive delegated submission-grant v1 contract, shared positive/negative
+  vectors, Swift 6 shared-Keychain grant pool, and framework-neutral Python
+  issuance/atomic-consumption ports without changing existing session bytes.
 
 ### Not production-ready
 

@@ -241,6 +241,152 @@ struct AppIntegrityKitTests {
         #expect(await transport.challengeRequests.isEmpty)
     }
 
+    @Test func sharedDelegatedGrantVectorHasIdenticalHashes() throws {
+        let vector = try Self.loadDelegatedGrantVector()
+        let tokens = try vector.tokenMaterial.map(Base64URL.decode)
+        let tokenHashes = tokens.map { token in
+            Base64URL.encode(Data(SHA256.hash(data: token)))
+        }
+        let requestBody = try Base64URL.decode(vector.consumption.requestBody)
+        let changedRequestBody = try Base64URL.decode(
+            vector.consumption.changedRequestBody
+        )
+
+        #expect(vector.protocolVersion == 1)
+        #expect(tokenHashes == vector.expectedTokenHashes)
+        #expect(
+            Base64URL.encode(Data(SHA256.hash(data: requestBody)))
+                == vector.consumption.requestDigest
+        )
+        #expect(
+            Base64URL.encode(Data(SHA256.hash(data: changedRequestBody)))
+                == vector.consumption.changedRequestDigest
+        )
+    }
+
+    @Test func delegatedGrantPoolReservesExactRequestAndReplaysLocally() async throws {
+        let vector = try Self.loadDelegatedGrantVector()
+        let issuedAt = try #require(Self.parseDate(vector.issuedAt))
+        let expiresAt = try #require(Self.parseDate(vector.expectedExpiresAt))
+        let digest = try Base64URL.decode(vector.consumption.requestDigest)
+        let changedDigest = try Base64URL.decode(
+            vector.consumption.changedRequestDigest
+        )
+        let store = InMemoryAppIntegrityDelegatedGrantStore()
+        let batch = AppIntegrityDelegatedGrantBatch(
+            protocolVersion: vector.protocolVersion,
+            applicationID: vector.authority.applicationID,
+            environment: try #require(
+                AppIntegrityEnvironment(rawValue: vector.authority.environment)
+            ),
+            operation: vector.policy.operation,
+            grants: vector.tokenMaterial.map {
+                AppIntegrityDelegatedGrantResponseItem(
+                    token: $0,
+                    expiresAt: expiresAt,
+                    useLimit: vector.policy.useLimit
+                )
+            }
+        )
+        try await store.merge(
+            batch,
+            for: vector.authority.applicationID,
+            at: issuedAt
+        )
+
+        let first = try #require(try await store.reserveGrant(
+            for: vector.authority.applicationID,
+            environment: batch.environment,
+            operation: vector.policy.operation,
+            submissionID: vector.consumption.submissionID,
+            requestBodySHA256: digest,
+            at: issuedAt
+        ))
+        let replay = try #require(try await store.reserveGrant(
+            for: vector.authority.applicationID,
+            environment: batch.environment,
+            operation: vector.policy.operation,
+            submissionID: vector.consumption.submissionID,
+            requestBodySHA256: digest,
+            at: issuedAt.addingTimeInterval(1)
+        ))
+
+        #expect(first == replay)
+        #expect(first.token == vector.consumption.token)
+        #expect(!String(describing: first).contains(first.token))
+        #expect(!String(reflecting: first).contains(first.token))
+        #expect(!String(describing: batch).contains(first.token))
+        await #expect(throws: AppIntegrityDelegatedGrantStoreError.requestBindingMismatch) {
+            try await store.reserveGrant(
+                for: vector.authority.applicationID,
+                environment: batch.environment,
+                operation: vector.policy.operation,
+                submissionID: vector.consumption.submissionID,
+                requestBodySHA256: changedDigest,
+                at: issuedAt.addingTimeInterval(2)
+            )
+        }
+    }
+
+    @Test func delegatedGrantPoolFailsClosedForInvalidOrExpiredAuthority() async throws {
+        let vector = try Self.loadDelegatedGrantVector()
+        let issuedAt = try #require(Self.parseDate(vector.issuedAt))
+        let expiresAt = try #require(Self.parseDate(vector.expectedExpiresAt))
+        let digest = try Base64URL.decode(vector.consumption.requestDigest)
+        let store = InMemoryAppIntegrityDelegatedGrantStore()
+        let invalidBatch = AppIntegrityDelegatedGrantBatch(
+            protocolVersion: vector.protocolVersion,
+            applicationID: vector.authority.applicationID,
+            environment: .development,
+            operation: vector.policy.operation,
+            grants: [AppIntegrityDelegatedGrantResponseItem(
+                token: vector.consumption.token,
+                expiresAt: expiresAt,
+                useLimit: 2
+            )]
+        )
+        await #expect(throws: AppIntegrityDelegatedGrantStoreError.invalidBatch) {
+            try await store.merge(
+                invalidBatch,
+                for: vector.authority.applicationID,
+                at: issuedAt
+            )
+        }
+
+        let validBatch = AppIntegrityDelegatedGrantBatch(
+            protocolVersion: vector.protocolVersion,
+            applicationID: vector.authority.applicationID,
+            environment: .development,
+            operation: vector.policy.operation,
+            grants: [AppIntegrityDelegatedGrantResponseItem(
+                token: vector.consumption.token,
+                expiresAt: expiresAt,
+                useLimit: 1
+            )]
+        )
+        try await store.merge(validBatch, for: vector.authority.applicationID, at: issuedAt)
+
+        let wrongEnvironment = try await store.reserveGrant(
+            for: vector.authority.applicationID,
+            environment: .production,
+            operation: vector.policy.operation,
+            submissionID: "wrong-environment",
+            requestBodySHA256: digest,
+            at: issuedAt
+        )
+        let expired = try await store.reserveGrant(
+            for: vector.authority.applicationID,
+            environment: .development,
+            operation: vector.policy.operation,
+            submissionID: "expired",
+            requestBodySHA256: digest,
+            at: expiresAt
+        )
+
+        #expect(wrongEnvironment == nil)
+        #expect(expired == nil)
+    }
+
     private static func configuration(
         requestedScopes: Set<String> = ["tides:forecast", "tides:licensed-global"]
     ) -> AppIntegrityConfiguration {
@@ -262,6 +408,24 @@ struct AppIntegrityKitTests {
             .appendingPathComponent("test-vectors")
             .appendingPathComponent("session-client-data-v1.json")
         return try JSONDecoder().decode(SessionVector.self, from: Data(contentsOf: url))
+    }
+
+    private static func loadDelegatedGrantVector() throws -> DelegatedGrantVector {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let url = repositoryRoot
+            .appendingPathComponent("Protocol")
+            .appendingPathComponent("test-vectors")
+            .appendingPathComponent("delegated-submission-grants-v1.json")
+        return try JSONDecoder().decode(
+            DelegatedGrantVector.self,
+            from: Data(contentsOf: url)
+        )
+    }
+
+    private static func parseDate(_ value: String) -> Date? {
+        ISO8601DateFormatter().date(from: value)
     }
 }
 
@@ -286,6 +450,36 @@ private struct SessionVector: Decodable {
     let name: String
     let inputs: Inputs
     let expected: Expected
+}
+
+private struct DelegatedGrantVector: Decodable {
+    struct Authority: Decodable {
+        let applicationID: String
+        let environment: String
+    }
+
+    struct Policy: Decodable {
+        let operation: String
+        let useLimit: Int
+    }
+
+    struct Consumption: Decodable {
+        let token: String
+        let submissionID: String
+        let requestBody: String
+        let requestDigest: String
+        let changedRequestBody: String
+        let changedRequestDigest: String
+    }
+
+    let protocolVersion: Int
+    let issuedAt: String
+    let authority: Authority
+    let policy: Policy
+    let tokenMaterial: [String]
+    let expectedTokenHashes: [String]
+    let expectedExpiresAt: String
+    let consumption: Consumption
 }
 
 private actor FakeAppAttestService: AppAttestServicing {

@@ -21,6 +21,7 @@ shipping a reusable backend credential in an app binary.
 4. Cross-language positive and negative test vectors.
 5. A physical-device reference app and a FastAPI reference integration.
 6. Optional XCFramework and generated DocC distribution artifacts.
+7. An additive delegated-submission-grant contract for unsupported extensions.
 
 ## In scope
 
@@ -30,6 +31,8 @@ shipping a reusable backend credential in an app binary.
 - Dependency-injected credential storage and networking.
 - Development and production environment separation.
 - Extension-safe use of sessions established by a supported host app.
+- One-use delegated submission grants issued only through an already verified,
+  short-lived product session and stored in a dedicated shared-Keychain pool.
 - Cryptographic verification primitives and framework-neutral server ports.
 
 ## Out of scope
@@ -37,6 +40,8 @@ shipping a reusable backend credential in an app binary.
 - Human login or account management.
 - StoreKit product definitions or product-specific entitlement policy.
 - Product-specific rate limits, data APIs, or provider credentials.
+- Product-specific grant pool sizes, lifetimes, endpoint operations, quotas,
+  cost admission, or persistence adapters.
 - A shared runtime that accepts tokens for every Qalv product.
 - A client-reported “unsupported device” bypass.
 - Central storage shared between unrelated product backends.
@@ -50,4 +55,6 @@ shipping a reusable backend credential in an app binary.
 - Replays, expired challenges, wrong app identities, counter rollback, unknown
   keys, altered client data, and environment crossover are rejected.
 - Installation/session records can be revoked without changing app binaries.
-
+- Delegated grants reject changed-request replay, cross-product/environment use,
+  revoked installations, expiry, exhaustion, and store unavailability while
+  exact lost-response replay returns the original acceptance.

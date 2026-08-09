@@ -5,6 +5,9 @@ from typing import Protocol
 
 from .models import (
     AllowedApplication,
+    DelegatedGrantConsumption,
+    DelegatedGrantConsumptionRequest,
+    DelegatedGrantRecord,
     SessionClientData,
     VerifiedAssertion,
     VerifiedAttestation,
@@ -89,3 +92,25 @@ class SessionIssuer(Protocol):
         scopes: frozenset[str],
         expires_at: datetime,
     ) -> str: ...
+
+
+class DelegatedGrantStore(Protocol):
+    """Product adapters implement grant issuance and consumption atomically.
+
+    Consumption verifies the stored application, environment, operation,
+    expiry, use count, grant revocation, and bound installation-key status in
+    one transaction. Exact replay returns the original acceptance ID. Product
+    adapters may combine that transaction with their deterministic submission
+    record, but product payloads and cost policy do not enter this core port.
+    """
+
+    async def issue(self, records: tuple[DelegatedGrantRecord, ...]) -> None: ...
+
+    async def consume(
+        self,
+        request: DelegatedGrantConsumptionRequest,
+    ) -> DelegatedGrantConsumption: ...
+
+
+class OpaqueTokenGenerator(Protocol):
+    def generate(self, byte_count: int) -> bytes: ...

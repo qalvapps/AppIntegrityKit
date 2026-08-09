@@ -3,7 +3,10 @@
 AppIntegrityKit is Qalv's reusable Apple App Attest client and server-verifier
 product. It gives first-party Apple apps a versioned way to register an
 attested installation and exchange assertions for short-lived, product-scoped
-backend sessions.
+backend sessions. Its additive delegated-submission-grant contract lets a
+supported containing app provision one-use authority for an unsupported
+extension without making that extension an App Attest client or lengthening
+normal sessions.
 
 The repository has two deliverables:
 
@@ -13,6 +16,11 @@ The repository has two deliverables:
 TideTables/GoodTides is the first reference integration. Recipeez is the second.
 Apps share implementation and protocol, never keys, sessions, entitlements, or
 backend trust stores.
+
+Delegated grants are separately modelled one-use bearer values. Only an
+already-verified product session may issue them; the backend stores only token
+hashes, and client material lives in a dedicated shared-Keychain record. See
+[the delegated grant protocol](Protocol/delegated-submission-grants-v1.md).
 
 ## Status
 

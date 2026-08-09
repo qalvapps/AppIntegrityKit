@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from enum import StrEnum
 
 
@@ -109,3 +110,137 @@ class VerifiedAssertion:
     counter: int
     validation_category: int
     bundle_version: str
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class VerifiedSessionAuthority:
+    """Principal produced only after a product backend verifies a live session."""
+
+    application_id: str
+    environment: AppAttestEnvironment
+    key_id_hash: bytes
+    session_expires_at: datetime
+
+    def __post_init__(self) -> None:
+        _validate_ascii(self.application_id, "application_id", 128)
+        if not isinstance(self.environment, AppAttestEnvironment):
+            raise ValueError("environment must be an AppAttestEnvironment")
+        if not isinstance(self.key_id_hash, bytes) or len(self.key_id_hash) != 32:
+            raise ValueError("key_id_hash must be a SHA-256 digest")
+        _validate_aware_datetime(self.session_expires_at, "session_expires_at")
+
+
+@dataclass(frozen=True, slots=True)
+class DelegatedGrantPolicy:
+    """Server-owned pool policy; no value in this model comes from authority."""
+
+    operation: str
+    pool_size: int
+    lifetime: timedelta
+    use_limit: int = 1
+
+    def __post_init__(self) -> None:
+        _validate_ascii(self.operation, "operation", 128)
+        if type(self.pool_size) is not int or not 1 <= self.pool_size <= 64:
+            raise ValueError("pool_size must be between 1 and 64")
+        if not isinstance(self.lifetime, timedelta):
+            raise ValueError("lifetime must be a timedelta")
+        if not timedelta(0) < self.lifetime <= timedelta(hours=24):
+            raise ValueError("lifetime must be positive and no greater than 24 hours")
+        if self.use_limit != 1:
+            raise ValueError("delegated submission grants have a one-use limit")
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class DelegatedGrantRecord:
+    token_hash: bytes
+    application_id: str
+    environment: AppAttestEnvironment
+    key_id_hash: bytes
+    operation: str
+    issued_at: datetime
+    expires_at: datetime
+    use_limit: int
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.token_hash, bytes) or len(self.token_hash) != 32:
+            raise ValueError("token_hash must be a SHA-256 digest")
+        _validate_ascii(self.application_id, "application_id", 128)
+        if not isinstance(self.environment, AppAttestEnvironment):
+            raise ValueError("environment must be an AppAttestEnvironment")
+        if not isinstance(self.key_id_hash, bytes) or len(self.key_id_hash) != 32:
+            raise ValueError("key_id_hash must be a SHA-256 digest")
+        _validate_ascii(self.operation, "operation", 128)
+        _validate_aware_datetime(self.issued_at, "issued_at")
+        _validate_aware_datetime(self.expires_at, "expires_at")
+        if self.expires_at <= self.issued_at:
+            raise ValueError("expires_at must be after issued_at")
+        if self.use_limit != 1:
+            raise ValueError("delegated submission grants have a one-use limit")
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class IssuedDelegatedGrant:
+    token: str
+    expires_at: datetime
+    use_limit: int
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class DelegatedGrantConsumptionRequest:
+    token_hash: bytes
+    application_id: str
+    environment: AppAttestEnvironment
+    operation: str
+    submission_id: str
+    request_digest: bytes
+    acceptance_id: str
+    now: datetime
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.token_hash, bytes) or len(self.token_hash) != 32:
+            raise ValueError("token_hash must be a SHA-256 digest")
+        _validate_ascii(self.application_id, "application_id", 128)
+        if not isinstance(self.environment, AppAttestEnvironment):
+            raise ValueError("environment must be an AppAttestEnvironment")
+        _validate_ascii(self.operation, "operation", 128)
+        _validate_ascii(self.submission_id, "submission_id", 256)
+        if not isinstance(self.request_digest, bytes) or len(self.request_digest) != 32:
+            raise ValueError("request_digest must be a SHA-256 digest")
+        _validate_ascii(self.acceptance_id, "acceptance_id", 256)
+        _validate_aware_datetime(self.now, "now")
+
+
+class DelegatedGrantConsumptionStatus(StrEnum):
+    ACCEPTED = "accepted"
+    REPLAYED = "replayed"
+
+
+@dataclass(frozen=True, slots=True)
+class DelegatedGrantConsumption:
+    status: DelegatedGrantConsumptionStatus
+    acceptance_id: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.status, DelegatedGrantConsumptionStatus):
+            raise ValueError("status must be a DelegatedGrantConsumptionStatus")
+        _validate_ascii(self.acceptance_id, "acceptance_id", 256)
+
+
+def _validate_ascii(value: object, field: str, maximum: int) -> None:
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > maximum
+        or not value.isascii()
+    ):
+        raise ValueError(f"{field} must be bounded non-empty ASCII")
+
+
+def _validate_aware_datetime(value: object, field: str) -> None:
+    if (
+        not isinstance(value, datetime)
+        or value.tzinfo is None
+        or value.utcoffset() is None
+    ):
+        raise ValueError(f"{field} must be timezone-aware")

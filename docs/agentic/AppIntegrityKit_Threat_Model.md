@@ -63,8 +63,26 @@ inputs in URLs or logs. Revocation disables a key and its sessions.
 ### Unsupported surface bypass
 
 Widgets and unsupported extensions do not bootstrap App Attest. They consume
-cached product data or a narrowly scoped session provisioned by the main app.
-The server does not trust a client boolean claiming App Attest is unsupported.
+cached product data, a narrowly scoped live session, or a one-use delegated
+submission grant provisioned by the containing app through an already verified
+session. The server does not trust a client boolean claiming App Attest is
+unsupported.
+
+### Delegated grant theft or replay
+
+Delegated grants are separate from product sessions, random, one-use, bound
+server-side to one product, environment, attested installation key, operation,
+expiry, and revocation state, and stored only as hashes on the server. The
+unsupported extension keeps raw grants only in a dedicated shared-Keychain
+record using `AfterFirstUnlockThisDeviceOnly`.
+
+First consumption atomically binds the grant to an exact submission ID and the
+SHA-256 digest of the received request body. An exact replay returns the stored
+acceptance without another use or charged operation; a changed request fails
+closed. The transaction also verifies that the bound installation key remains
+active. Product quota and cost admission run independently after grant
+verification. Grant material, token hashes, installation hashes, submission
+IDs, request digests, and source payloads never enter logs or diagnostics.
 
 ### Development bypass reaching production
 
@@ -77,10 +95,11 @@ environment with separate records and policy.
 
 - A sufficiently compromised operating system may proxy legitimate assertions.
 - A stolen live session can be used until expiry or revocation.
+- A stolen unused delegated grant can authorize its one bounded operation until
+  first use, expiry, installation revocation, or grant revocation.
 - App Attest does not prove payment, user identity, or benign intent.
 - Availability depends on Apple, the product edge, and persistent storage.
 
 These risks are addressed with entitlement verification, short sessions,
 quotas, monitoring, revocation, graceful product behaviour, and optional Apple
 fraud assessment—not by weakening attestation verification.
-
