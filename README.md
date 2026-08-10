@@ -26,11 +26,12 @@ hashes, and client material lives in a dedicated shared-Keychain record. See
 
 The repository is in pre-release integration development. The v1 wire models,
 Swift client, strict Apple attestation/assertion verifier, Apple validation
-sample, and negative vectors are present. It is not yet approved for production
-traffic: the GoodTides reference integration passes physical-device development
-attestation, scoped-session, and private-worker access, but an independent
-security review, StoreKit production authorization, and a TestFlight production
-run remain release gates.
+sample, and negative vectors are present. The GoodTides reference integration
+passes physical-device development and TestFlight production App Attest,
+StoreKit Sandbox authorization, scoped-session renewal, and private-worker
+access. It is not yet approved as a generally production-supported package:
+independent security review, the remaining physical/TestFlight recovery matrix,
+and App Store production authorization remain release gates.
 
 ## Codex integration workflow
 

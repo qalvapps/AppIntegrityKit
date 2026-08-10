@@ -20,7 +20,8 @@
 - [x] Add Apple’s official sample and tamper/replay vectors.
 - [x] Validate current assertion signature and extension bytes from a physical
   development device, including Apple's prefixed extension schema.
-- [ ] Validate assertion bytes from a TestFlight production build.
+- [x] Validate assertion bytes from a TestFlight production build, including
+  the exact legacy grammar emitted by an Xcode 26-linked app.
 - [ ] Obtain an independent security review before production use.
 
 ## Phase 2 — GoodTides reference backend
@@ -31,7 +32,7 @@
   adapters.
 - [x] Invoke private `tide-data-broker` with Google service identity.
 - [x] Change precise-coordinate forecast input from URL query to POST body.
-- [ ] Add StoreKit JWS verification as a separate authorization gate.
+- [x] Add StoreKit JWS verification as a separate authorization gate.
 
 ## Phase 3 — TideTables reference client
 
@@ -41,7 +42,8 @@
 - [ ] Add an independent watch identity only if watch live networking remains.
 - [x] Validate development on a physical device through the complete GoodTides
   edge and private broker.
-- [ ] Validate production through TestFlight.
+- [x] Validate production through TestFlight with initial registration followed
+  by a fresh assertion/session that reuses the installation key.
 
 ## Priority gate — paved-road multi-app adoption
 

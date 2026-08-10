@@ -29,7 +29,8 @@
   while non-equivalent requests run in sequence.
 - [ ] Reinstall, pending-key retry, unknown-key recovery, replay, and expiry are
   verified on physical/TestFlight builds.
-- [ ] A TestFlight production-environment registration/session succeeds.
+- [x] A TestFlight production-environment registration and two successive
+  assertion-bound sessions succeed without a second registration.
 - [x] TideTables contains no reusable GoodTides or provider credential.
 
 ## Before 1.0.0
