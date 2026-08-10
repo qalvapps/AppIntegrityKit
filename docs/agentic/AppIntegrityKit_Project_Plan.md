@@ -43,6 +43,23 @@
   edge and private broker.
 - [ ] Validate production through TestFlight.
 
+## Priority gate — paved-road multi-app adoption
+
+Complete the [consumer adoption plan](AppIntegrityKit_Consumer_Adoption_Plan.md)
+before starting Recipeez integration. This is release-critical: GoodTides must
+migrate without interruption, and new consumers must not introduce a second
+configuration or release workflow that AppIntegrityKit must support indefinitely.
+
+- [ ] Define one explicit, non-secret per-product integration manifest.
+- [ ] Add a typed build policy with exact-version and minimum-plus-revocation
+  modes while retaining a bounded migration path for current GoodTides policy.
+- [ ] Provide generic adoption and release-preflight tooling with no
+  product-specific identifiers baked into AppIntegrityKit.
+- [ ] Make legacy App Attest compensation, backend storage, authorization,
+  quota, revocation, and environment separation required checklist decisions.
+- [ ] Add configuration, migration, and cross-product isolation tests.
+- [ ] Migrate GoodTides to the new contract before Recipeez consumes it.
+
 ## Phase 4 — Recipeez adoption
 
 - [ ] Remove release worker-key injection.

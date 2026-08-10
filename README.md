@@ -39,6 +39,12 @@ personal Codex skill `$harden-ios-app-integrity`. It provides the app-integratio
 fail-closed Release configuration, built-product inspection, physical-device,
 and TestFlight verification workflow used by the reference implementations.
 
+Before adding another product, follow the release-blocking
+[consumer adoption plan](docs/agentic/AppIntegrityKit_Consumer_Adoption_Plan.md).
+It defines the single product-neutral configuration, migration, preflight, and
+cross-product isolation work required before Recipeez or future apps adopt the
+package.
+
 The skill is an execution aid, not a specification. This repository's product
 specification, threat model, versioned protocol, architecture, and release
 checklist remain authoritative.
