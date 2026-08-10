@@ -17,10 +17,11 @@ package.
 
 The attestation verifier validates strict CBOR, the X.509 path and validity
 period, Apple leaf purpose, nonce extension, P-256 key and Apple key ID, RP ID,
-counter zero, AAGUID/environment, COSE key, macOS ACL policy where applicable,
-launch validation category, and bundle version. The assertion verifier binds
-the exact client-data bytes, Apple key ID, signature, RP ID, increasing counter,
-validation category, and bundle version.
+counter zero, AAGUID/environment, COSE key, and macOS ACL policy where
+applicable. For the iOS 27 grammar it also verifies launch validation category
+and bundle version. The assertion verifier binds the exact client-data bytes,
+Apple key ID, signature, RP ID, and increasing counter, plus validation category
+and bundle version when the signed iOS 27 extension map is present.
 
 ```python
 import hashlib
@@ -59,6 +60,14 @@ Use validation category `3` for development-signed builds, `2` for TestFlight,
 and `4` for App Store builds. Keep development and production key records
 separate. Add a release's exact `CFBundleVersion` to server policy before that
 build reaches users.
+
+Apps that must accept the pre-iOS 27 App Attest grammar can explicitly set
+`allows_legacy_app_attest=True`. The legacy grammar is accepted only when the
+signed authenticator data ends at the exact legacy boundary; partial or
+malformed extension bytes remain invalid. Because pre-iOS 27 evidence does not
+contain Apple's newer signed validation-category and bundle-version fields, a
+product backend enabling this option must require a separate server-verified
+authorization signal such as an Apple-signed StoreKit transaction.
 
 Product backends will supply:
 

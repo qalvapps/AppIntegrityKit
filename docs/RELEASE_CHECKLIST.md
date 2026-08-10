@@ -19,6 +19,9 @@
 - [ ] The verifier receives independent security review.
 - [x] Assertion signature, RP ID, extension, counter, and exact client-data
   validation are implemented.
+- [x] Pre-iOS 27 legacy and iOS 27 extended authenticator grammars have positive
+  and malformed-suffix regression coverage; legacy acceptance is application
+  policy and requires a documented compensating authorization control.
 - [x] GoodTides persistence performs atomic challenge consumption and counter
   advancement.
 - [x] A physical iPhone development-environment registration/session succeeds.

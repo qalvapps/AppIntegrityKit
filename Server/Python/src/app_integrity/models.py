@@ -26,6 +26,7 @@ class AllowedApplication:
     allowed_scopes: frozenset[str]
     allowed_validation_categories: frozenset[int]
     allowed_bundle_versions: frozenset[str]
+    allows_legacy_app_attest: bool = False
 
     def __post_init__(self) -> None:
         if (
@@ -83,6 +84,8 @@ class AllowedApplication:
             for version in self.allowed_bundle_versions
         ):
             raise ValueError("allowed_bundle_versions is invalid")
+        if type(self.allows_legacy_app_attest) is not bool:
+            raise ValueError("allows_legacy_app_attest must be a bool")
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,15 +104,15 @@ class VerifiedAttestation:
     public_key_x963: bytes
     receipt: bytes
     environment: AppAttestEnvironment
-    validation_category: int
-    bundle_version: str
+    validation_category: int | None
+    bundle_version: str | None
 
 
 @dataclass(frozen=True, slots=True)
 class VerifiedAssertion:
     counter: int
-    validation_category: int
-    bundle_version: str
+    validation_category: int | None
+    bundle_version: str | None
 
 
 @dataclass(frozen=True, slots=True, repr=False)

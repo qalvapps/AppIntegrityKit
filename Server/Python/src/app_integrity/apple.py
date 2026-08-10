@@ -197,12 +197,15 @@ class AppleAttestationObjectVerifier:
                         "macOS attestation access policy is invalid"
                     )
 
-            category, bundle_version = _validate_extensions(
-                parsed.extensions,
-                category_key="apple_validation_category_01",
-                bundle_key="apple_bundle_version_01",
-                application=application,
-            )
+            if parsed.extensions is None:
+                category, bundle_version = _legacy_metadata(application)
+            else:
+                category, bundle_version = _validate_extensions(
+                    parsed.extensions,
+                    category_key="apple_validation_category_01",
+                    bundle_key="apple_bundle_version_01",
+                    application=application,
+                )
             return VerifiedAttestation(
                 public_key_x963=public_key_x963,
                 receipt=receipt,
@@ -259,7 +262,7 @@ class AppleAssertionObjectVerifier:
             auth_data = assertion["authenticatorData"]
             if not isinstance(signature, bytes) or not (8 <= len(signature) <= 144):
                 raise AppAttestVerificationError("assertion signature is invalid")
-            if not isinstance(auth_data, bytes) or not (38 <= len(auth_data) <= 16_384):
+            if not isinstance(auth_data, bytes) or not (37 <= len(auth_data) <= 16_384):
                 raise AppAttestVerificationError(
                     "assertion authenticator data is invalid"
                 )
@@ -313,17 +316,20 @@ class AppleAssertionObjectVerifier:
             if counter <= previous_counter or counter == 0:
                 raise AppAttestVerificationError("assertion counter did not advance")
 
-            extensions, end = decode_cbor_prefix(
-                auth_data,
-                offset=37,
-                maximum_size=16_384,
-            )
-            if end != len(auth_data) or type(extensions) is not dict:
-                raise AppAttestVerificationError("assertion extensions are invalid")
-            category, bundle_version = _validate_assertion_extensions(
-                extensions,
-                application=application,
-            )
+            if len(auth_data) == 37:
+                category, bundle_version = _legacy_metadata(application)
+            else:
+                extensions, end = decode_cbor_prefix(
+                    auth_data,
+                    offset=37,
+                    maximum_size=16_384,
+                )
+                if end != len(auth_data) or type(extensions) is not dict:
+                    raise AppAttestVerificationError("assertion extensions are invalid")
+                category, bundle_version = _validate_assertion_extensions(
+                    extensions,
+                    application=application,
+                )
             return VerifiedAssertion(
                 counter=counter,
                 validation_category=category,
@@ -359,7 +365,7 @@ class _AttestationAuthenticatorData:
         aaguid: bytes,
         credential_id: bytes,
         cose_public_key_x963: bytes,
-        extensions: dict[object, object],
+        extensions: dict[object, object] | None,
     ) -> None:
         self.rp_id_hash = rp_id_hash
         self.counter = counter
@@ -405,18 +411,21 @@ def _parse_attestation_authenticator_data(data: bytes) -> _AttestationAuthentica
     cose_public_key_x963 = b"\x04" + x_coordinate + y_coordinate
     _p256_public_key_from_x963(cose_public_key_x963)
 
-    try:
-        extensions, end = decode_cbor_prefix(
-            data,
-            offset=offset,
-            maximum_size=16_384,
-        )
-    except CBORDecodeError as error:
-        raise AppAttestVerificationError(
-            _cbor_failure_detail("attestation extension CBOR", error)
-        ) from error
-    if end != len(data) or type(extensions) is not dict:
-        raise AppAttestVerificationError("attestation extensions are invalid")
+    if offset == len(data):
+        extensions = None
+    else:
+        try:
+            extensions, end = decode_cbor_prefix(
+                data,
+                offset=offset,
+                maximum_size=16_384,
+            )
+        except CBORDecodeError as error:
+            raise AppAttestVerificationError(
+                _cbor_failure_detail("attestation extension CBOR", error)
+            ) from error
+        if end != len(data) or type(extensions) is not dict:
+            raise AppAttestVerificationError("attestation extensions are invalid")
     return _AttestationAuthenticatorData(
         rp_id_hash=data[:32],
         counter=counter,
@@ -460,6 +469,12 @@ def _validate_extensions(
     if bundle_version not in application.allowed_bundle_versions:
         raise AppAttestVerificationError("bundle version is not allowed")
     return category, bundle_version
+
+
+def _legacy_metadata(application: AllowedApplication) -> tuple[None, None]:
+    if not application.allows_legacy_app_attest:
+        raise AppAttestVerificationError("required App Attest extensions are missing")
+    return None, None
 
 
 def _validate_assertion_extensions(

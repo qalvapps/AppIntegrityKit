@@ -22,7 +22,8 @@ from app_integrity import (
     encode_session_client_data,
     parse_session_client_data,
 )
-from app_integrity._cbor import CBORDecodeError, decode_cbor
+from app_integrity._cbor import CBORDecodeError, decode_cbor, decode_cbor_prefix
+from app_integrity.apple import _parse_attestation_authenticator_data
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -44,6 +45,7 @@ def _official_application(
     environments: frozenset[AppAttestEnvironment] | None = None,
     categories: frozenset[int] = frozenset({1}),
     bundle_versions: frozenset[str] = frozenset({"1"}),
+    allows_legacy_app_attest: bool = False,
 ) -> AllowedApplication:
     return AllowedApplication(
         application_id="official-apple-sample",
@@ -53,6 +55,7 @@ def _official_application(
         allowed_scopes=frozenset(),
         allowed_validation_categories=categories,
         allowed_bundle_versions=bundle_versions,
+        allows_legacy_app_attest=allows_legacy_app_attest,
     )
 
 
@@ -173,7 +176,23 @@ def test_attestation_classifies_malformed_certificate_encoding() -> None:
         _verify_official(attestation_object=_encode_cbor(decoded))
 
 
-def _assertion_application() -> AllowedApplication:
+def test_attestation_parser_accepts_only_an_exact_legacy_suffix() -> None:
+    fixture = _official_fixture()
+    decoded = decode_cbor(base64.b64decode(fixture["attestationObjectBase64"]))
+    auth_data = decoded["authData"]
+    credential_length = int.from_bytes(auth_data[53:55], "big")
+    _, cose_end = decode_cbor_prefix(auth_data, offset=55 + credential_length)
+
+    parsed = _parse_attestation_authenticator_data(auth_data[:cose_end])
+
+    assert parsed.extensions is None
+    with pytest.raises(AppAttestVerificationError, match="extension CBOR"):
+        _parse_attestation_authenticator_data(auth_data[:cose_end] + b"\xff")
+
+
+def _assertion_application(
+    *, allows_legacy_app_attest: bool = False
+) -> AllowedApplication:
     return AllowedApplication(
         application_id="goodtides-ios",
         app_id="TEAMID1234.com.qalv.goodtides",
@@ -182,6 +201,7 @@ def _assertion_application() -> AllowedApplication:
         allowed_scopes=frozenset({"tides:forecast", "tides:licensed-global"}),
         allowed_validation_categories=frozenset({4}),
         allowed_bundle_versions=frozenset({"1"}),
+        allows_legacy_app_attest=allows_legacy_app_attest,
     )
 
 
@@ -230,13 +250,15 @@ def _make_assertion(
             "apple_validation_category_01": category.to_bytes(4, "little"),
             "apple_bundle_version_01": bundle_version,
         }
+    elif extension_style == "legacy":
+        extensions = None
     else:
         raise ValueError("unsupported test extension style")
     auth_data = (
         hashlib.sha256((rp_id or application.app_id).encode("utf-8")).digest()
-        + b"\x80"
+        + (b"\x00" if extensions is None else b"\x80")
         + counter.to_bytes(4, "big")
-        + _encode_cbor(extensions)
+        + (_encode_cbor(extensions) if extensions is not None else b"")
     )
     nonce = hashlib.sha256(
         auth_data + hashlib.sha256(exact_client_data).digest()
@@ -303,6 +325,53 @@ def test_assertion_accepts_apple_prefixed_extension_schema() -> None:
     assert result.counter == 1
     assert result.validation_category == 4
     assert result.bundle_version == "1"
+
+
+def test_assertion_accepts_explicitly_allowed_legacy_grammar() -> None:
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    exact_client_data, client_data = _session_client_data(private_key)
+    application = _assertion_application(allows_legacy_app_attest=True)
+    assertion, public_key = _make_assertion(
+        private_key,
+        exact_client_data=exact_client_data,
+        application=application,
+        extension_style="legacy",
+    )
+
+    result = AppleAssertionObjectVerifier().verify(
+        assertion_object=assertion,
+        exact_client_data=exact_client_data,
+        client_data=client_data,
+        public_key_x963=public_key,
+        previous_counter=0,
+        application=application,
+    )
+
+    assert result.counter == 1
+    assert result.validation_category is None
+    assert result.bundle_version is None
+
+
+def test_assertion_rejects_legacy_grammar_without_server_opt_in() -> None:
+    private_key = ec.generate_private_key(ec.SECP256R1())
+    exact_client_data, client_data = _session_client_data(private_key)
+    application = _assertion_application()
+    assertion, public_key = _make_assertion(
+        private_key,
+        exact_client_data=exact_client_data,
+        application=application,
+        extension_style="legacy",
+    )
+
+    with pytest.raises(AppAttestVerificationError, match="extensions are missing"):
+        AppleAssertionObjectVerifier().verify(
+            assertion_object=assertion,
+            exact_client_data=exact_client_data,
+            client_data=client_data,
+            public_key_x963=public_key,
+            previous_counter=0,
+            application=application,
+        )
 
 
 def test_assertion_rejects_ambiguous_extension_schema() -> None:
