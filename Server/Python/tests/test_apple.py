@@ -154,7 +154,10 @@ def test_strict_cbor_rejects_duplicate_keys_and_nonminimal_lengths() -> None:
 
 
 def test_attestation_classifies_malformed_cbor_without_logging_payloads() -> None:
-    with pytest.raises(AppAttestVerificationError, match="attestation CBOR"):
+    with pytest.raises(
+        AppAttestVerificationError,
+        match="attestation CBOR is invalid: CBOR is truncated",
+    ):
         _verify_official(attestation_object=b"not-cbor")
 
 

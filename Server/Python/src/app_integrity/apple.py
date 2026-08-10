@@ -109,7 +109,7 @@ class AppleAttestationObjectVerifier:
                 decoded = decode_cbor(attestation_object)
             except CBORDecodeError as error:
                 raise AppAttestVerificationError(
-                    "attestation CBOR is invalid"
+                    _cbor_failure_detail("attestation CBOR", error)
                 ) from error
             top = _exact_map(decoded, {"fmt", "attStmt", "authData"}, "attestation")
             if top["fmt"] != "apple-appattest":
@@ -390,7 +390,7 @@ def _parse_attestation_authenticator_data(data: bytes) -> _AttestationAuthentica
         )
     except CBORDecodeError as error:
         raise AppAttestVerificationError(
-            "attestation credential CBOR is invalid"
+            _cbor_failure_detail("attestation credential CBOR", error)
         ) from error
     if type(cose_key) is not dict or set(cose_key) != {1, 3, -1, -2, -3}:
         raise AppAttestVerificationError("attestation COSE key is invalid")
@@ -413,7 +413,7 @@ def _parse_attestation_authenticator_data(data: bytes) -> _AttestationAuthentica
         )
     except CBORDecodeError as error:
         raise AppAttestVerificationError(
-            "attestation extension CBOR is invalid"
+            _cbor_failure_detail("attestation extension CBOR", error)
         ) from error
     if end != len(data) or type(extensions) is not dict:
         raise AppAttestVerificationError("attestation extensions are invalid")
@@ -495,6 +495,11 @@ def _exact_map(value: object, fields: set[str], name: str) -> dict[object, objec
     if type(value) is not dict or set(value) != fields:
         raise AppAttestVerificationError(f"{name} structure is invalid")
     return value
+
+
+def _cbor_failure_detail(context: str, error: CBORDecodeError) -> str:
+    """Return only decoder-owned classifications, never payload-derived text."""
+    return f"{context} is invalid: {error}"
 
 
 def _decode_apple_key_id(key_id: str) -> bytes:

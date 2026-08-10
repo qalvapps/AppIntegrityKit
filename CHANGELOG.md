@@ -25,8 +25,9 @@
   attestation or assertion keys are discarded and replaced once per operation,
   while Apple's transient `serverUnavailable` result retains the pending key
   for a later retry as required by App Attest guidance.
-- Attestation parsing reports safe stage-level CBOR and certificate-encoding
-  classifications without logging signed payloads, key identifiers, or receipts.
+- Attestation parsing reports safe stage-level CBOR decoder and
+  certificate-encoding classifications without logging signed payloads, key
+  identifiers, or receipts.
 - Assertion verification follows Apple's two-stage construction by forming the
   App Attest nonce first and then verifying ECDSA-with-SHA256 over those nonce
   bytes, with a regression test rejecting the former prehashed interpretation.
