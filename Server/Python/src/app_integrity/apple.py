@@ -105,7 +105,12 @@ class AppleAttestationObjectVerifier:
             raise AppAttestVerificationError("attestation object size is invalid")
 
         try:
-            decoded = decode_cbor(attestation_object)
+            try:
+                decoded = decode_cbor(attestation_object)
+            except CBORDecodeError as error:
+                raise AppAttestVerificationError(
+                    "attestation CBOR is invalid"
+                ) from error
             top = _exact_map(decoded, {"fmt", "attStmt", "authData"}, "attestation")
             if top["fmt"] != "apple-appattest":
                 raise AppAttestVerificationError("attestation format is invalid")
@@ -135,9 +140,15 @@ class AppleAttestationObjectVerifier:
                     "attestation authenticator data is invalid"
                 )
 
-            certificates = [
-                x509.load_der_x509_certificate(value) for value in certificate_values
-            ]
+            try:
+                certificates = [
+                    x509.load_der_x509_certificate(value)
+                    for value in certificate_values
+                ]
+            except (TypeError, ValueError) as error:
+                raise AppAttestVerificationError(
+                    "attestation certificate encoding is invalid"
+                ) from error
             verification_time = _aware_utc(self._now())
             _validate_certificate_chain(certificates, self._root, verification_time)
             leaf = certificates[0]
@@ -371,11 +382,16 @@ def _parse_attestation_authenticator_data(data: bytes) -> _AttestationAuthentica
         raise AppAttestVerificationError("attestation credential length is invalid")
     credential_id = data[55 : 55 + credential_length]
 
-    cose_key, offset = decode_cbor_prefix(
-        data,
-        offset=55 + credential_length,
-        maximum_size=16_384,
-    )
+    try:
+        cose_key, offset = decode_cbor_prefix(
+            data,
+            offset=55 + credential_length,
+            maximum_size=16_384,
+        )
+    except CBORDecodeError as error:
+        raise AppAttestVerificationError(
+            "attestation credential CBOR is invalid"
+        ) from error
     if type(cose_key) is not dict or set(cose_key) != {1, 3, -1, -2, -3}:
         raise AppAttestVerificationError("attestation COSE key is invalid")
     if cose_key[1] != 2 or cose_key[3] != -7 or cose_key[-1] != 1:
@@ -389,7 +405,16 @@ def _parse_attestation_authenticator_data(data: bytes) -> _AttestationAuthentica
     cose_public_key_x963 = b"\x04" + x_coordinate + y_coordinate
     _p256_public_key_from_x963(cose_public_key_x963)
 
-    extensions, end = decode_cbor_prefix(data, offset=offset, maximum_size=16_384)
+    try:
+        extensions, end = decode_cbor_prefix(
+            data,
+            offset=offset,
+            maximum_size=16_384,
+        )
+    except CBORDecodeError as error:
+        raise AppAttestVerificationError(
+            "attestation extension CBOR is invalid"
+        ) from error
     if end != len(data) or type(extensions) is not dict:
         raise AppAttestVerificationError("attestation extensions are invalid")
     return _AttestationAuthenticatorData(

@@ -153,6 +153,23 @@ def test_strict_cbor_rejects_duplicate_keys_and_nonminimal_lengths() -> None:
         decode_cbor(b"\x18\x01")
 
 
+def test_attestation_classifies_malformed_cbor_without_logging_payloads() -> None:
+    with pytest.raises(AppAttestVerificationError, match="attestation CBOR"):
+        _verify_official(attestation_object=b"not-cbor")
+
+
+def test_attestation_classifies_malformed_certificate_encoding() -> None:
+    fixture = _official_fixture()
+    decoded = decode_cbor(base64.b64decode(fixture["attestationObjectBase64"]))
+    decoded["attStmt"]["x5c"][0] = b"not-a-certificate"
+
+    with pytest.raises(
+        AppAttestVerificationError,
+        match="certificate encoding",
+    ):
+        _verify_official(attestation_object=_encode_cbor(decoded))
+
+
 def _assertion_application() -> AllowedApplication:
     return AllowedApplication(
         application_id="goodtides-ios",
