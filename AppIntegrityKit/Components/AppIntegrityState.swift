@@ -93,7 +93,8 @@ actor AppIntegrityState {
     private func establishSession(
         runtime: Runtime,
         entitlementEvidence: Data?,
-        forceRefresh: Bool
+        forceRefresh: Bool,
+        mayReplaceRejectedKey: Bool = true
     ) async throws -> AppIntegritySession {
         let configuration = runtime.configuration
         if !forceRefresh,
@@ -125,10 +126,26 @@ actor AppIntegrityState {
             entitlementEvidence: entitlementEvidence
         ).encoded
         let clientDataHash = Data(SHA256.hash(data: clientData))
-        let assertion = try await runtime.appAttestService.generateAssertion(
-            keyRecord.keyID,
-            clientDataHash: clientDataHash
-        )
+        let assertion: Data
+        do {
+            assertion = try await runtime.appAttestService.generateAssertion(
+                keyRecord.keyID,
+                clientDataHash: clientDataHash
+            )
+        } catch AppIntegrityError.appAttestKeyRejected {
+            try await runtime.credentialStore.removeAll(
+                for: configuration.applicationID
+            )
+            guard mayReplaceRejectedKey else {
+                throw AppIntegrityError.appAttestKeyRejected
+            }
+            return try await establishSession(
+                runtime: runtime,
+                entitlementEvidence: entitlementEvidence,
+                forceRefresh: true,
+                mayReplaceRejectedKey: false
+            )
+        }
         let request = AppIntegritySessionRequest(
             protocolVersion: AppIntegrityConfiguration.protocolVersion,
             applicationID: configuration.applicationID,
@@ -186,7 +203,10 @@ actor AppIntegrityState {
         )
     }
 
-    private func registeredKey(using runtime: Runtime) async throws -> AppIntegrityKeyRecord {
+    private func registeredKey(
+        using runtime: Runtime,
+        mayReplaceRejectedKey: Bool = true
+    ) async throws -> AppIntegrityKeyRecord {
         let applicationID = runtime.configuration.applicationID
         var record = try await runtime.credentialStore.keyRecord(for: applicationID)
         if record == nil {
@@ -212,10 +232,22 @@ actor AppIntegrityState {
         )
         try validate(challenge, expectedPurpose: .attestation)
         let challengeData = try Base64URL.decode(challenge.challenge)
-        let attestation = try await runtime.appAttestService.attestKey(
-            record.keyID,
-            clientDataHash: Data(SHA256.hash(data: challengeData))
-        )
+        let attestation: Data
+        do {
+            attestation = try await runtime.appAttestService.attestKey(
+                record.keyID,
+                clientDataHash: Data(SHA256.hash(data: challengeData))
+            )
+        } catch AppIntegrityError.appAttestKeyRejected {
+            try await runtime.credentialStore.removeAll(for: applicationID)
+            guard mayReplaceRejectedKey else {
+                throw AppIntegrityError.appAttestKeyRejected
+            }
+            return try await registeredKey(
+                using: runtime,
+                mayReplaceRejectedKey: false
+            )
+        }
         let response = try await runtime.transport.registerAttestation(
             AppIntegrityAttestationRequest(
                 protocolVersion: AppIntegrityConfiguration.protocolVersion,

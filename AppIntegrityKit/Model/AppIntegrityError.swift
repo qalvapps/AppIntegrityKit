@@ -9,6 +9,9 @@ public enum AppIntegrityError: Error, Equatable, LocalizedError, Sendable {
     case registrationRejected
     case entitlementEvidenceTooLarge
     case missingDeviceCheckResult
+    case appAttestServerUnavailable
+    case appAttestKeyRejected
+    case appAttestFailure(Int)
     case credentialStoreFailure(Int32)
     case transportFailure(statusCode: Int, code: String?)
     case invalidServerResponse
@@ -31,6 +34,12 @@ public enum AppIntegrityError: Error, Equatable, LocalizedError, Sendable {
             "Entitlement evidence exceeds the 256 KiB protocol limit."
         case .missingDeviceCheckResult:
             "DeviceCheck completed without returning a result."
+        case .appAttestServerUnavailable:
+            "Apple's App Attest service is temporarily unavailable."
+        case .appAttestKeyRejected:
+            "Apple rejected the App Attest key."
+        case .appAttestFailure(let code):
+            "Apple's App Attest service failed with code \(code)."
         case .credentialStoreFailure(let status):
             "The integrity credential store failed with status \(status)."
         case .transportFailure(let statusCode, let code):

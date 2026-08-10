@@ -191,6 +191,120 @@ struct AppIntegrityKitTests {
         #expect(await appAttest.attestationHashes.count == 2)
     }
 
+    @Test func rejectedPendingAttestationKeyIsReplacedOnce() async throws {
+        let transport = FakeTransport()
+        let appAttest = FakeAppAttestService(
+            attestationFailures: [.appAttestKeyRejected]
+        )
+        let store = InMemoryAppIntegrityCredentialStore()
+        let client = AppIntegrity()
+        try await client.configure(
+            Self.configuration(),
+            transport: transport,
+            appAttestService: appAttest,
+            credentialStore: store
+        )
+
+        _ = try await client.session()
+
+        #expect(await appAttest.generateKeyCount == 2)
+        #expect(await appAttest.attestationKeyIDs == ["key-123", "key-2"])
+        #expect(await appAttest.assertionKeyIDs == ["key-2"])
+        #expect(await transport.challengeRequests == [
+            .attestation,
+            .attestation,
+            .session,
+        ])
+        #expect(await transport.registrationRequests.map(\.keyID) == ["key-2"])
+        #expect(
+            await store.keyRecord(for: "goodtides-ios")
+                == AppIntegrityKeyRecord(keyID: "key-2", isRegistered: true)
+        )
+    }
+
+    @Test func serverUnavailableRetainsPendingAttestationKey() async throws {
+        let transport = FakeTransport()
+        let appAttest = FakeAppAttestService(
+            attestationFailures: [.appAttestServerUnavailable]
+        )
+        let store = InMemoryAppIntegrityCredentialStore()
+        let client = AppIntegrity()
+        try await client.configure(
+            Self.configuration(),
+            transport: transport,
+            appAttestService: appAttest,
+            credentialStore: store
+        )
+
+        await #expect(throws: AppIntegrityError.appAttestServerUnavailable) {
+            try await client.session()
+        }
+        #expect(
+            await store.keyRecord(for: "goodtides-ios")
+                == AppIntegrityKeyRecord(keyID: "key-123", isRegistered: false)
+        )
+
+        _ = try await client.session()
+        #expect(await appAttest.generateKeyCount == 1)
+        #expect(await appAttest.attestationKeyIDs == ["key-123", "key-123"])
+    }
+
+    @Test func rejectedAttestationReplacementIsBounded() async throws {
+        let transport = FakeTransport()
+        let appAttest = FakeAppAttestService(
+            attestationFailures: [
+                .appAttestKeyRejected,
+                .appAttestKeyRejected,
+            ]
+        )
+        let store = InMemoryAppIntegrityCredentialStore()
+        let client = AppIntegrity()
+        try await client.configure(
+            Self.configuration(),
+            transport: transport,
+            appAttestService: appAttest,
+            credentialStore: store
+        )
+
+        await #expect(throws: AppIntegrityError.appAttestKeyRejected) {
+            try await client.session()
+        }
+
+        #expect(await appAttest.generateKeyCount == 2)
+        #expect(await appAttest.attestationKeyIDs == ["key-123", "key-2"])
+        #expect(await transport.registrationRequests.isEmpty)
+        #expect(await store.keyRecord(for: "goodtides-ios") == nil)
+    }
+
+    @Test func rejectedAssertionKeyRestartsRegistrationOnce() async throws {
+        let transport = FakeTransport()
+        let appAttest = FakeAppAttestService(
+            assertionFailures: [.appAttestKeyRejected]
+        )
+        let store = InMemoryAppIntegrityCredentialStore()
+        let client = AppIntegrity()
+        try await client.configure(
+            Self.configuration(),
+            transport: transport,
+            appAttestService: appAttest,
+            credentialStore: store
+        )
+
+        _ = try await client.session()
+
+        #expect(await appAttest.generateKeyCount == 2)
+        #expect(await appAttest.attestationKeyIDs == ["key-123", "key-2"])
+        #expect(await appAttest.assertionKeyIDs == ["key-123", "key-2"])
+        #expect(await transport.registrationRequests.map(\.keyID) == [
+            "key-123",
+            "key-2",
+        ])
+        #expect(
+            await store.keyRecord(for: "goodtides-ios")
+                == AppIntegrityKeyRecord(keyID: "key-2", isRegistered: true)
+        )
+    }
+
     @Test func unsupportedSurfaceFailsClosed() async throws {
         let client = AppIntegrity()
         try await client.configure(
@@ -488,10 +602,21 @@ private actor FakeAppAttestService: AppAttestServicing {
     private(set) var generateKeyCount = 0
     private(set) var attestationHashes: [Data] = []
     private(set) var assertionHashes: [Data] = []
+    private(set) var attestationKeyIDs: [String] = []
+    private(set) var assertionKeyIDs: [String] = []
+    private var attestationFailures: [AppIntegrityError]
+    private var assertionFailures: [AppIntegrityError]
 
-    init(supported: Bool = true, operationDelay: Duration? = nil) {
+    init(
+        supported: Bool = true,
+        operationDelay: Duration? = nil,
+        attestationFailures: [AppIntegrityError] = [],
+        assertionFailures: [AppIntegrityError] = []
+    ) {
         self.supported = supported
         self.operationDelay = operationDelay
+        self.attestationFailures = attestationFailures
+        self.assertionFailures = assertionFailures
     }
 
     func isSupported() -> Bool {
@@ -503,14 +628,18 @@ private actor FakeAppAttestService: AppAttestServicing {
             try await Task.sleep(for: operationDelay)
         }
         generateKeyCount += 1
-        return "key-123"
+        return generateKeyCount == 1 ? "key-123" : "key-\(generateKeyCount)"
     }
 
     func attestKey(_ keyID: String, clientDataHash: Data) async throws -> Data {
         if let operationDelay {
             try await Task.sleep(for: operationDelay)
         }
+        attestationKeyIDs.append(keyID)
         attestationHashes.append(clientDataHash)
+        if !attestationFailures.isEmpty {
+            throw attestationFailures.removeFirst()
+        }
         return Data("attestation".utf8)
     }
 
@@ -518,7 +647,11 @@ private actor FakeAppAttestService: AppAttestServicing {
         if let operationDelay {
             try await Task.sleep(for: operationDelay)
         }
+        assertionKeyIDs.append(keyID)
         assertionHashes.append(clientDataHash)
+        if !assertionFailures.isEmpty {
+            throw assertionFailures.removeFirst()
+        }
         return Data("assertion".utf8)
     }
 }

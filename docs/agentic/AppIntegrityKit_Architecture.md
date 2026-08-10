@@ -38,6 +38,13 @@ semantics run in sequence. This matters because actors are reentrant at
 `await`: actor isolation alone does not prevent two callers from overlapping
 key registration or advancing the same App Attest assertion counter.
 
+The DeviceCheck adapter normalizes Apple failures before they enter client
+orchestration. An attestation key rejected for any non-transient DeviceCheck
+error is removed and replaced once; an assertion `invalidKey` result restarts
+registration once. A `serverUnavailable` attestation retains its pending key
+for a later retry with the same inputs. These recovery paths are bounded and
+remain fail-closed if the replacement also fails.
+
 ## Python layers
 
 - `models`: language-neutral protocol values.
