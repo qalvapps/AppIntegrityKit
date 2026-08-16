@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Removed product-facing English error descriptions from `AppIntegrityError`.
+  Consumers now receive stable error keys and optional HTTP/backend codes and
+  remain solely responsible for localized user-facing copy.
+
 ### Added
 
 - Standalone SwiftPM library with a singleton-style, actor-backed client.
@@ -25,6 +29,9 @@
   attestation or assertion keys are discarded and replaced once per operation,
   while Apple's transient `serverUnavailable` result retains the pending key
   for a later retry as required by App Attest guidance.
+- A server `registration_required` response now replaces a locally registered
+  key once, allowing safe recovery from missing backend key state without
+  weakening revocation or generic verification failures.
 - Attestation parsing reports safe stage-level CBOR decoder and
   certificate-encoding classifications without logging signed payloads, key
   identifiers, or receipts.

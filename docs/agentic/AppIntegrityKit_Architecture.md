@@ -45,6 +45,11 @@ registration once. A `serverUnavailable` attestation retains its pending key
 for a later retry with the same inputs. These recovery paths are bounded and
 remain fail-closed if the replacement also fails.
 
+The product edge can also report `registration_required` when its record for a
+previously registered key is missing. The actor clears local credentials and
+re-registers once. Deliberate revocation and generic verification failures are
+not recoverable signals and never enter this path.
+
 ## Python layers
 
 - `models`: language-neutral protocol values.

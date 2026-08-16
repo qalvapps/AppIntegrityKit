@@ -1,5 +1,9 @@
 # AppIntegrityKit Release Checklist
 
+- [ ] Public failures expose only stable machine-readable keys and safe status
+  metadata. AppIntegrityKit does not conform them to `LocalizedError`, contain
+  end-user sentences, or own consumer-app localization.
+
 ## Every release
 
 - [ ] `scripts/verify.sh` passes from a clean checkout.
@@ -29,6 +33,8 @@
   while non-equivalent requests run in sequence.
 - [ ] Reinstall, pending-key retry, unknown-key recovery, replay, and expiry are
   verified on physical/TestFlight builds.
+- [x] Unknown server registration recovery is bounded to one replacement, while
+  revoked keys and generic verification failures remain fail-closed.
 - [x] A TestFlight production-environment registration and two successive
   assertion-bound sessions succeed without a second registration.
 - [x] TideTables contains no reusable GoodTides or provider credential.

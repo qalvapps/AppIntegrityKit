@@ -9,6 +9,20 @@ struct AppIntegrityKitTests {
         #expect(AppIntegrity.version == "0.1.0-dev")
     }
 
+    @Test func errorsExposeStableNonLocalizedKeysAndTransportMetadata() {
+        let transport = AppIntegrityError.transportFailure(
+            statusCode: 401,
+            code: "registration_required"
+        )
+
+        #expect(transport.code == .transportFailure)
+        #expect(transport.httpStatusCode == 401)
+        #expect(transport.backendCode == "registration_required")
+        #expect(AppIntegrityError.appAttestNotSupported.code == .appAttestNotSupported)
+        #expect(AppIntegrityError.appAttestNotSupported.httpStatusCode == nil)
+        #expect(AppIntegrityError.appAttestNotSupported.backendCode == nil)
+    }
+
     @Test func sharedVectorProducesIdenticalCanonicalBytes() throws {
         let vector = try Self.loadVector()
         let evidence = try Base64URL.decode(vector.inputs.entitlementEvidence)
@@ -302,6 +316,95 @@ struct AppIntegrityKitTests {
         #expect(
             await store.keyRecord(for: "goodtides-ios")
                 == AppIntegrityKeyRecord(keyID: "key-2", isRegistered: true)
+        )
+    }
+
+    @Test func missingServerRegistrationRestartsRegistrationOnce() async throws {
+        let transport = FakeTransport(sessionFailures: [
+            .transportFailure(statusCode: 401, code: "registration_required")
+        ])
+        let appAttest = FakeAppAttestService()
+        let store = InMemoryAppIntegrityCredentialStore()
+        await store.saveKeyRecord(
+            AppIntegrityKeyRecord(keyID: "key-123", isRegistered: true),
+            for: "goodtides-ios"
+        )
+        let client = AppIntegrity()
+        try await client.configure(
+            Self.configuration(),
+            transport: transport,
+            appAttestService: appAttest,
+            credentialStore: store
+        )
+
+        _ = try await client.session(forceRefresh: true)
+
+        #expect(await appAttest.generateKeyCount == 1)
+        #expect(await appAttest.attestationKeyIDs == ["key-123"])
+        #expect(await appAttest.assertionKeyIDs == ["key-123", "key-123"])
+        #expect(await transport.registrationRequests.map(\.keyID) == ["key-123"])
+        #expect(await transport.sessionRequests.count == 2)
+    }
+
+    @Test func missingServerRegistrationRecoveryIsBounded() async throws {
+        let failure = AppIntegrityError.transportFailure(
+            statusCode: 401,
+            code: "registration_required"
+        )
+        let transport = FakeTransport(sessionFailures: [failure, failure])
+        let appAttest = FakeAppAttestService()
+        let store = InMemoryAppIntegrityCredentialStore()
+        await store.saveKeyRecord(
+            AppIntegrityKeyRecord(keyID: "key-123", isRegistered: true),
+            for: "goodtides-ios"
+        )
+        let client = AppIntegrity()
+        try await client.configure(
+            Self.configuration(),
+            transport: transport,
+            appAttestService: appAttest,
+            credentialStore: store
+        )
+
+        await #expect(throws: failure) {
+            try await client.session(forceRefresh: true)
+        }
+
+        #expect(await appAttest.generateKeyCount == 1)
+        #expect(await transport.registrationRequests.count == 1)
+        #expect(await transport.sessionRequests.count == 2)
+    }
+
+    @Test func genericVerificationFailureDoesNotResetRegistration() async throws {
+        let failure = AppIntegrityError.transportFailure(
+            statusCode: 401,
+            code: "integrity_verification_failed"
+        )
+        let transport = FakeTransport(sessionFailures: [failure])
+        let appAttest = FakeAppAttestService()
+        let store = InMemoryAppIntegrityCredentialStore()
+        await store.saveKeyRecord(
+            AppIntegrityKeyRecord(keyID: "key-123", isRegistered: true),
+            for: "goodtides-ios"
+        )
+        let client = AppIntegrity()
+        try await client.configure(
+            Self.configuration(),
+            transport: transport,
+            appAttestService: appAttest,
+            credentialStore: store
+        )
+
+        await #expect(throws: failure) {
+            try await client.session(forceRefresh: true)
+        }
+
+        #expect(await appAttest.generateKeyCount == 0)
+        #expect(await transport.registrationRequests.isEmpty)
+        #expect(await transport.sessionRequests.count == 1)
+        #expect(
+            await store.keyRecord(for: "goodtides-ios")
+                == AppIntegrityKeyRecord(keyID: "key-123", isRegistered: true)
         )
     }
 
@@ -661,13 +764,16 @@ private actor FakeTransport: AppIntegrityTransport {
     private(set) var registrationRequests: [AppIntegrityAttestationRequest] = []
     private(set) var sessionRequests: [AppIntegritySessionRequest] = []
     private var registrationFailureCount: Int
+    private var sessionFailures: [AppIntegrityError]
     private let challengeDelay: Duration?
 
     init(
         registrationFailureCount: Int = 0,
+        sessionFailures: [AppIntegrityError] = [],
         challengeDelay: Duration? = nil
     ) {
         self.registrationFailureCount = registrationFailureCount
+        self.sessionFailures = sessionFailures
         self.challengeDelay = challengeDelay
     }
 
@@ -704,8 +810,11 @@ private actor FakeTransport: AppIntegrityTransport {
 
     func establishSession(
         _ request: AppIntegritySessionRequest
-    ) -> AppIntegritySessionResponse {
+    ) throws -> AppIntegritySessionResponse {
         sessionRequests.append(request)
+        if !sessionFailures.isEmpty {
+            throw sessionFailures.removeFirst()
+        }
         return AppIntegritySessionResponse(
             protocolVersion: 1,
             sessionToken: Base64URL.encode(Data(repeating: 9, count: 32)),

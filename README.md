@@ -77,6 +77,11 @@ The shared facade is `AppIntegrity.shared`. Tests and multi-backend apps may
 create isolated `AppIntegrity()` instances and inject transports, App Attest
 services, and credential stores.
 
+`AppIntegrityError` is a product-neutral typed error and does not conform to
+`LocalizedError`. Consumers map its stable `code`, optional `httpStatusCode`
+and optional safe `backendCode` into their own localized UI. AppIntegrityKit
+must never supply end-user sentences or assume how an app presents recovery.
+
 ## Repository verification
 
 ```bash

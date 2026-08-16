@@ -21,3 +21,8 @@ multiple product backends.
 The backend must implement the matching protocol and every Apple verification
 step. A session must never be issued merely because the client supplied an
 attestation-shaped payload.
+
+Integrity failures are machine-readable, not user-facing. Map
+``AppIntegrityError/code``, ``AppIntegrityError/httpStatusCode`` and
+``AppIntegrityError/backendCode`` into each consuming product's own localized
+copy. The package deliberately does not conform its errors to `LocalizedError`.

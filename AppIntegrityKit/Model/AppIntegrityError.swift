@@ -1,6 +1,27 @@
 import Foundation
 
-public enum AppIntegrityError: Error, Equatable, LocalizedError, Sendable {
+/// Stable, non-localized keys that a consuming app can map to its own copy.
+public enum AppIntegrityErrorCode: String, Equatable, Sendable {
+    case notConfigured = "not_configured"
+    case invalidConfiguration = "invalid_configuration"
+    case appAttestNotSupported = "app_attest_not_supported"
+    case invalidChallenge = "invalid_challenge"
+    case unsupportedProtocolVersion = "unsupported_protocol_version"
+    case registrationRejected = "registration_rejected"
+    case entitlementEvidenceTooLarge = "entitlement_evidence_too_large"
+    case missingDeviceCheckResult = "missing_device_check_result"
+    case appAttestServerUnavailable = "app_attest_server_unavailable"
+    case appAttestKeyRejected = "app_attest_key_rejected"
+    case appAttestFailure = "app_attest_failure"
+    case credentialStoreFailure = "credential_store_failure"
+    case transportFailure = "transport_failure"
+    case invalidServerResponse = "invalid_server_response"
+}
+
+/// Typed integrity failures. This deliberately does not conform to
+/// `LocalizedError`: AppIntegrityKit has no product UI and consuming apps own
+/// all user-facing wording and localization.
+public enum AppIntegrityError: Error, Equatable, Sendable {
     case notConfigured
     case invalidConfiguration(String)
     case appAttestNotSupported
@@ -16,40 +37,49 @@ public enum AppIntegrityError: Error, Equatable, LocalizedError, Sendable {
     case transportFailure(statusCode: Int, code: String?)
     case invalidServerResponse
 
-    public var errorDescription: String? {
+    public var code: AppIntegrityErrorCode {
         switch self {
         case .notConfigured:
-            "AppIntegrityKit has not been configured."
-        case .invalidConfiguration(let reason):
-            "Invalid AppIntegrityKit configuration: \(reason)"
+            .notConfigured
+        case .invalidConfiguration:
+            .invalidConfiguration
         case .appAttestNotSupported:
-            "App Attest is not supported on this device or surface."
-        case .invalidChallenge(let reason):
-            "The integrity challenge is invalid: \(reason)"
-        case .unsupportedProtocolVersion(let version):
-            "Unsupported AppIntegrity protocol version: \(version)."
+            .appAttestNotSupported
+        case .invalidChallenge:
+            .invalidChallenge
+        case .unsupportedProtocolVersion:
+            .unsupportedProtocolVersion
         case .registrationRejected:
-            "The backend rejected the App Attest registration."
+            .registrationRejected
         case .entitlementEvidenceTooLarge:
-            "Entitlement evidence exceeds the 256 KiB protocol limit."
+            .entitlementEvidenceTooLarge
         case .missingDeviceCheckResult:
-            "DeviceCheck completed without returning a result."
+            .missingDeviceCheckResult
         case .appAttestServerUnavailable:
-            "Apple's App Attest service is temporarily unavailable."
+            .appAttestServerUnavailable
         case .appAttestKeyRejected:
-            "Apple rejected the App Attest key."
-        case .appAttestFailure(let code):
-            "Apple's App Attest service failed with code \(code)."
-        case .credentialStoreFailure(let status):
-            "The integrity credential store failed with status \(status)."
-        case .transportFailure(let statusCode, let code):
-            if let code {
-                "The integrity backend returned HTTP \(statusCode) (\(code))."
-            } else {
-                "The integrity backend returned HTTP \(statusCode)."
-            }
+            .appAttestKeyRejected
+        case .appAttestFailure:
+            .appAttestFailure
+        case .credentialStoreFailure:
+            .credentialStoreFailure
+        case .transportFailure:
+            .transportFailure
         case .invalidServerResponse:
-            "The integrity backend returned an invalid response."
+            .invalidServerResponse
         }
+    }
+
+    /// HTTP status returned by the product edge, when this is a transport
+    /// failure. The consuming app decides how (or whether) to present it.
+    public var httpStatusCode: Int? {
+        guard case .transportFailure(let statusCode, _) = self else { return nil }
+        return statusCode
+    }
+
+    /// Safe machine-readable code returned by the product edge, when present.
+    public var backendCode: String? {
+        guard case .transportFailure(_, let code) = self else { return nil }
+        return code
     }
 }

@@ -94,7 +94,8 @@ actor AppIntegrityState {
         runtime: Runtime,
         entitlementEvidence: Data?,
         forceRefresh: Bool,
-        mayReplaceRejectedKey: Bool = true
+        mayReplaceRejectedKey: Bool = true,
+        mayRecoverMissingRegistration: Bool = true
     ) async throws -> AppIntegritySession {
         let configuration = runtime.configuration
         if !forceRefresh,
@@ -143,7 +144,8 @@ actor AppIntegrityState {
                 runtime: runtime,
                 entitlementEvidence: entitlementEvidence,
                 forceRefresh: true,
-                mayReplaceRejectedKey: false
+                mayReplaceRejectedKey: false,
+                mayRecoverMissingRegistration: mayRecoverMissingRegistration
             )
         }
         let request = AppIntegritySessionRequest(
@@ -154,7 +156,30 @@ actor AppIntegrityState {
             assertion: Base64URL.encode(assertion),
             entitlementEvidence: entitlementEvidence.map(Base64URL.encode)
         )
-        let response = try await runtime.transport.establishSession(request)
+        let response: AppIntegritySessionResponse
+        do {
+            response = try await runtime.transport.establishSession(request)
+        } catch AppIntegrityError.transportFailure(
+            statusCode: 401,
+            code: "registration_required"
+        ) {
+            guard mayRecoverMissingRegistration else {
+                throw AppIntegrityError.transportFailure(
+                    statusCode: 401,
+                    code: "registration_required"
+                )
+            }
+            try await runtime.credentialStore.removeAll(
+                for: configuration.applicationID
+            )
+            return try await establishSession(
+                runtime: runtime,
+                entitlementEvidence: entitlementEvidence,
+                forceRefresh: true,
+                mayReplaceRejectedKey: mayReplaceRejectedKey,
+                mayRecoverMissingRegistration: false
+            )
+        }
         try validateProtocolVersion(response.protocolVersion)
         guard !response.sessionToken.isEmpty,
               response.sessionToken.count <= 4_096,
