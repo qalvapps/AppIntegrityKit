@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Recover once when older OS releases report a stale post-reinstall App Attest
+  assertion key as `invalidInput` instead of `invalidKey`.
+
 - Removed product-facing English error descriptions from `AppIntegrityError`.
   Consumers now receive stable error keys and optional HTTP/backend codes and
   remain solely responsible for localized user-facing copy.

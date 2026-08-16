@@ -4,7 +4,7 @@ import Foundation
 
 @available(iOS 14.0, macOS 11.0, watchOS 9.0, *)
 public actor DeviceCheckAppAttestService: AppAttestServicing {
-    private enum Operation: Equatable {
+    enum Operation: Equatable {
         case keyGeneration
         case attestation
         case assertion
@@ -62,7 +62,7 @@ public actor DeviceCheckAppAttestService: AppAttestServicing {
         }
     }
 
-    private nonisolated static func map(
+    nonisolated static func map(
         _ error: Error,
         operation: Operation
     ) -> Error {
@@ -76,7 +76,9 @@ public actor DeviceCheckAppAttestService: AppAttestServicing {
             return AppIntegrityError.appAttestServerUnavailable
         }
         if operation == .attestation
-            || nsError.code == DCError.Code.invalidKey.rawValue {
+            || nsError.code == DCError.Code.invalidKey.rawValue
+            || (operation == .assertion
+                && nsError.code == DCError.Code.invalidInput.rawValue) {
             return AppIntegrityError.appAttestKeyRejected
         }
         return AppIntegrityError.appAttestFailure(nsError.code)

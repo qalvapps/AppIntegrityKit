@@ -40,10 +40,12 @@ key registration or advancing the same App Attest assertion counter.
 
 The DeviceCheck adapter normalizes Apple failures before they enter client
 orchestration. An attestation key rejected for any non-transient DeviceCheck
-error is removed and replaced once; an assertion `invalidKey` result restarts
-registration once. A `serverUnavailable` attestation retains its pending key
-for a later retry with the same inputs. These recovery paths are bounded and
-remain fail-closed if the replacement also fails.
+error is removed and replaced once. An assertion `invalidKey` result restarts
+registration once, as does `invalidInput` from an assertion made with a stale
+key retained across an app reinstall on older OS releases. A `serverUnavailable`
+attestation retains its pending key for a later retry with the same inputs.
+These recovery paths are bounded and remain fail-closed if the replacement also
+fails.
 
 The product edge can also report `registration_required` when its record for a
 previously registered key is missing. The actor clears local credentials and

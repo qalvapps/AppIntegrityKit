@@ -2,8 +2,27 @@ import CryptoKit
 import Foundation
 import Testing
 @testable import AppIntegrityKit
+#if canImport(DeviceCheck)
+import DeviceCheck
+#endif
 
 struct AppIntegrityKitTests {
+    #if canImport(DeviceCheck)
+    @Test func assertionInvalidInputIsARecoverableStaleKeySignal() {
+        let appleError = NSError(
+            domain: DCError.errorDomain,
+            code: DCError.Code.invalidInput.rawValue
+        )
+
+        let normalized = DeviceCheckAppAttestService.map(
+            appleError,
+            operation: .assertion
+        ) as? AppIntegrityError
+
+        #expect(normalized == .appAttestKeyRejected)
+    }
+    #endif
+
     @Test func singletonSurfaceExists() {
         #expect(AppIntegrity.shared === AppIntegrity.shared)
         #expect(AppIntegrity.version == "0.1.0-dev")
