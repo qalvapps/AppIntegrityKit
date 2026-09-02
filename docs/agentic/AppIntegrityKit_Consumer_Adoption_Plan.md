@@ -34,7 +34,11 @@ records each product's required integration inputs:
 - bundle-version policy;
 - legacy App Attest decision and its mandatory compensating authorization;
 - storage partitions, session lifetime, revocation, rate limits, and quotas;
-- extension/watch behavior and any permitted delegated authority.
+- extension/watch behavior and any permitted delegated authority;
+- whether a delegated pool is single-process or shared across processes, the
+  required coordination-capability version and consumer-supplied App Group
+  location when shared, and the product's explicit old-binding revocation and
+  bounded key-loss/expiry policy.
 
 The manifest is configuration, never a credential. Provider secrets, reusable
 tokens, StoreKit private keys, and integrity artifacts must not appear in it.
@@ -101,6 +105,11 @@ Add automated coverage for:
 - GoodTides keys, sessions, entitlement evidence, and routing IDs being rejected
   by a second product policy, and vice versa;
 - release artifact/backend-policy mismatches stopping before upload;
+- multi-process delegated consumers failing preflight when either target selects
+  the single-process store, has a mismatched App Group, or consumes a package
+  without the required coordination capability;
+- explicit old-binding revocation being distinguished from replacement-key
+  registration, which must not be treated as a revocation signal;
 - migration from GoodTides' existing exact allowlist without downtime.
 
 ## Completion gates

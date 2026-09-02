@@ -2,12 +2,13 @@ import Foundation
 import Security
 
 public actor KeychainAppIntegrityDelegatedGrantStore: AppIntegrityDelegatedGrantStoring {
-    private let service: String
-    private let accessGroup: String?
+    private let persistence: AppIntegrityDelegatedGrantKeychainPersistence
 
     public init(service: String, accessGroup: String? = nil) {
-        self.service = service
-        self.accessGroup = accessGroup
+        persistence = AppIntegrityDelegatedGrantKeychainPersistence(
+            service: service,
+            accessGroup: accessGroup
+        )
     }
 
     public func merge(
@@ -15,9 +16,9 @@ public actor KeychainAppIntegrityDelegatedGrantStore: AppIntegrityDelegatedGrant
         for applicationID: String,
         at date: Date
     ) throws {
-        var pool = try readPool(for: applicationID)
+        var pool = try persistence.readPool(for: applicationID)
         try pool.merge(batch, expectedApplicationID: applicationID, at: date)
-        try writePool(pool, for: applicationID)
+        try persistence.writePool(pool, for: applicationID)
     }
 
     public func reserveGrant(
@@ -28,7 +29,7 @@ public actor KeychainAppIntegrityDelegatedGrantStore: AppIntegrityDelegatedGrant
         requestBodySHA256: Data,
         at date: Date
     ) throws -> AppIntegrityDelegatedGrantAuthorization? {
-        var pool = try readPool(for: applicationID)
+        var pool = try persistence.readPool(for: applicationID)
         let authorization = try pool.reserve(
             environment: environment,
             operation: operation,
@@ -36,30 +37,135 @@ public actor KeychainAppIntegrityDelegatedGrantStore: AppIntegrityDelegatedGrant
             requestBodySHA256: requestBodySHA256,
             at: date
         )
-        try writePool(pool, for: applicationID)
+        try persistence.writePool(pool, for: applicationID)
         return authorization
     }
 
     public func removeGrant(token: String, for applicationID: String) throws {
-        var pool = try readPool(for: applicationID)
+        var pool = try persistence.readPool(for: applicationID)
         pool.remove(token: token)
-        try writePool(pool, for: applicationID)
+        try persistence.writePool(pool, for: applicationID)
     }
 
     public func removeExpiredGrants(for applicationID: String, at date: Date) throws {
-        var pool = try readPool(for: applicationID)
+        var pool = try persistence.readPool(for: applicationID)
         pool.removeExpired(at: date)
-        try writePool(pool, for: applicationID)
+        try persistence.writePool(pool, for: applicationID)
     }
 
     public func removeAllGrants(for applicationID: String) throws {
-        let status = SecItemDelete(baseQuery(for: applicationID) as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw AppIntegrityError.credentialStoreFailure(status)
+        try persistence.removePool(for: applicationID)
+    }
+}
+
+/// Shared-Keychain storage with a complete cross-process lock around every
+/// read/decode/mutate/write operation. Existing single-process consumers keep
+/// using ``KeychainAppIntegrityDelegatedGrantStore`` unchanged.
+public actor CoordinatedKeychainAppIntegrityDelegatedGrantStore:
+    AppIntegrityCoordinatedDelegatedGrantStoring {
+    public nonisolated let coordinationCapabilityVersion: Int
+
+    private let persistence: AppIntegrityDelegatedGrantKeychainPersistence
+    private let coordinator: any AppIntegrityDelegatedGrantCoordinating
+
+    public init(
+        service: String,
+        accessGroup: String? = nil,
+        coordinator: any AppIntegrityDelegatedGrantCoordinating
+    ) {
+        persistence = AppIntegrityDelegatedGrantKeychainPersistence(
+            service: service,
+            accessGroup: accessGroup
+        )
+        self.coordinator = coordinator
+        coordinationCapabilityVersion = coordinator.capabilityVersion
+    }
+
+    public func merge(
+        _ batch: AppIntegrityDelegatedGrantBatch,
+        for applicationID: String,
+        at date: Date
+    ) throws {
+        try coordinator.withExclusiveAccess {
+            var pool = try persistence.readPool(for: applicationID)
+            try pool.merge(batch, expectedApplicationID: applicationID, at: date)
+            try persistence.writePool(pool, for: applicationID)
         }
     }
 
-    private func readPool(for applicationID: String) throws -> AppIntegrityDelegatedGrantPoolRecord {
+    public func reserveGrant(
+        for applicationID: String,
+        environment: AppIntegrityEnvironment,
+        operation: String,
+        submissionID: String,
+        requestBodySHA256: Data,
+        at date: Date
+    ) throws -> AppIntegrityDelegatedGrantAuthorization? {
+        try coordinator.withExclusiveAccess {
+            var pool = try persistence.readPool(for: applicationID)
+            let authorization = try pool.reserve(
+                environment: environment,
+                operation: operation,
+                submissionID: submissionID,
+                requestBodySHA256: requestBodySHA256,
+                at: date
+            )
+            try persistence.writePool(pool, for: applicationID)
+            return authorization
+        }
+    }
+
+    public func existingReservation(
+        for applicationID: String,
+        environment: AppIntegrityEnvironment,
+        operation: String,
+        submissionID: String,
+        requestBodySHA256: Data,
+        at date: Date = .now
+    ) throws -> AppIntegrityDelegatedGrantAuthorization? {
+        try coordinator.withExclusiveAccess {
+            let pool = try persistence.readPool(for: applicationID)
+            return try pool.existingReservation(
+                environment: environment,
+                operation: operation,
+                submissionID: submissionID,
+                requestBodySHA256: requestBodySHA256,
+                at: date
+            )
+        }
+    }
+
+    public func removeGrant(token: String, for applicationID: String) throws {
+        try coordinator.withExclusiveAccess {
+            var pool = try persistence.readPool(for: applicationID)
+            pool.remove(token: token)
+            try persistence.writePool(pool, for: applicationID)
+        }
+    }
+
+    public func removeExpiredGrants(
+        for applicationID: String,
+        at date: Date
+    ) throws {
+        try coordinator.withExclusiveAccess {
+            var pool = try persistence.readPool(for: applicationID)
+            pool.removeExpired(at: date)
+            try persistence.writePool(pool, for: applicationID)
+        }
+    }
+
+    public func removeAllGrants(for applicationID: String) throws {
+        try coordinator.withExclusiveAccess {
+            try persistence.removePool(for: applicationID)
+        }
+    }
+}
+
+private struct AppIntegrityDelegatedGrantKeychainPersistence: @unchecked Sendable {
+    let service: String
+    let accessGroup: String?
+
+    func readPool(for applicationID: String) throws -> AppIntegrityDelegatedGrantPoolRecord {
         var query = baseQuery(for: applicationID)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -77,7 +183,7 @@ public actor KeychainAppIntegrityDelegatedGrantStore: AppIntegrityDelegatedGrant
         return try decoder.decode(AppIntegrityDelegatedGrantPoolRecord.self, from: data)
     }
 
-    private func writePool(
+    func writePool(
         _ pool: AppIntegrityDelegatedGrantPoolRecord,
         for applicationID: String
     ) throws {
@@ -103,6 +209,13 @@ public actor KeychainAppIntegrityDelegatedGrantStore: AppIntegrityDelegatedGrant
         let addStatus = SecItemAdd(addition as CFDictionary, nil)
         guard addStatus == errSecSuccess else {
             throw AppIntegrityError.credentialStoreFailure(addStatus)
+        }
+    }
+
+    func removePool(for applicationID: String) throws {
+        let status = SecItemDelete(baseQuery(for: applicationID) as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw AppIntegrityError.credentialStoreFailure(status)
         }
     }
 

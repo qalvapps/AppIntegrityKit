@@ -89,6 +89,7 @@ class DelegatedGrantService:
                     issued_at=now,
                     expires_at=expires_at,
                     use_limit=policy.use_limit,
+                    policy_revision=policy.policy_revision,
                 )
             )
 
@@ -106,6 +107,7 @@ class DelegatedGrantService:
         exact_request_body: bytes,
         acceptance_id: str,
         now: datetime,
+        policy_revision: int = 1,
     ) -> DelegatedGrantConsumption:
         try:
             material = b64url_decode(token, field="delegated grant")
@@ -125,6 +127,7 @@ class DelegatedGrantService:
             request_digest=hashlib.sha256(exact_request_body).digest(),
             acceptance_id=acceptance_id,
             now=now,
+            policy_revision=policy_revision,
         )
         return await self._store.consume(request)
 

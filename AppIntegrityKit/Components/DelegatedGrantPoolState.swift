@@ -118,6 +118,32 @@ struct AppIntegrityDelegatedGrantPoolRecord: Codable, Equatable, Sendable {
         return Self.authorization(from: grants[index])
     }
 
+    func existingReservation(
+        environment: AppIntegrityEnvironment,
+        operation: String,
+        submissionID: String,
+        requestBodySHA256: Data,
+        at date: Date
+    ) throws -> AppIntegrityDelegatedGrantAuthorization? {
+        guard Self.isBoundedASCII(operation, maximum: 128),
+              Self.isBoundedASCII(submissionID, maximum: 256),
+              requestBodySHA256.count == 32 else {
+            throw AppIntegrityDelegatedGrantStoreError.invalidReservation
+        }
+        guard let existing = grants.first(where: {
+            $0.expiresAt > date
+                && $0.reservation?.submissionID == submissionID
+        }) else {
+            return nil
+        }
+        guard existing.environment == environment,
+              existing.operation == operation,
+              existing.reservation?.requestBodySHA256 == requestBodySHA256 else {
+            throw AppIntegrityDelegatedGrantStoreError.requestBindingMismatch
+        }
+        return Self.authorization(from: existing)
+    }
+
     mutating func remove(token: String) {
         grants.removeAll { $0.token == token }
     }

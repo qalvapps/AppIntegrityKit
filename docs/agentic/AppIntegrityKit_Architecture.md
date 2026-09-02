@@ -22,10 +22,17 @@ vectors. They do not share runtime storage or product policy.
 - `AppIntegrityCredentialStoring`: persistent key-ID/session port.
 - `AppIntegrityDelegatedGrantStoring`: separate shared-Keychain pool and exact
   local request-reservation port for unsupported extensions.
+- `AppIntegrityDelegatedGrantCoordinating`: consumer-supplied, non-secret
+  cross-process exclusion port for products that share one pool with extensions.
 - `DeviceCheckAppAttestService`: production DeviceCheck adapter.
 - `KeychainAppIntegrityCredentialStore`: production local storage adapter.
-- `KeychainAppIntegrityDelegatedGrantStore`: dedicated
-  `AfterFirstUnlockThisDeviceOnly` grant-pool adapter.
+- `KeychainAppIntegrityDelegatedGrantStore`: dedicated single-process
+  `AfterFirstUnlockThisDeviceOnly` grant-pool adapter retained for compatible
+  consumers that do not share a pool across processes.
+- Coordinated Keychain delegated-grant adapter: additive production adapter
+  that retains the same Keychain record but serializes every whole-pool
+  read/decode/mutate/write through a bounded operating-system-released lock at
+  a consumer-supplied App Group location containing no authority material.
 - `URLSessionAppIntegrityTransport`: JSON-over-HTTPS adapter.
 
 The facade is immutable and `Sendable`; all mutable orchestration state is actor
@@ -37,6 +44,20 @@ network operation. Requests with different entitlement evidence or refresh
 semantics run in sequence. This matters because actors are reentrant at
 `await`: actor isolation alone does not prevent two callers from overlapping
 key registration or advancing the same App Attest assertion counter.
+
+Actor isolation is likewise process-local. A containing app and extension can
+otherwise read the same Keychain pool, independently mutate stale snapshots,
+and overwrite a committed reservation. Multi-process consumers therefore use
+the coordinated adapter; failure to acquire its bounded lock before mutation is
+an availability outcome that returns no delegated authority. Termination during
+mutation may leave the caller uncertain, so the record is guaranteed to be a
+complete pre- or post-operation state and the next lock owner rereads it. Exact
+reservation then rediscovers a committed post-state instead of choosing another
+grant. Raw grants never enter the coordination file. The adapter exposes a
+non-secret coordination capability version for consumer preflight. The deployed
+local record encoding and delegated HTTP v1 remain unchanged, so normal-session
+consumers and single-process delegated consumers are not forced through a wire
+migration.
 
 The DeviceCheck adapter normalizes Apple failures before they enter client
 orchestration. An attestation key rejected for any non-transient DeviceCheck
@@ -51,6 +72,13 @@ The product edge can also report `registration_required` when its record for a
 previously registered key is missing. The actor clears local credentials and
 re-registers once. Deliberate revocation and generic verification failures are
 not recoverable signals and never enter this path.
+
+Key replacement is not revocation. A new App Attest key creates an independent
+server binding and does not identify or disable an older binding. Product-owned
+deliberate rotation revokes the old binding while old verified authority remains
+available; involuntary key loss clears stale local authority when detected, but
+old delegated authority remains bounded by explicit server revocation or its
+original expiry. AppIntegrityKit never infers cross-key continuity.
 
 ## Python layers
 
@@ -73,6 +101,13 @@ to v1 App Attest signed bytes. A product adapter constructs
 session, supplies server-owned pool policy, and implements the atomic grant
 store together with active-key/revocation checks. Product endpoints, payloads,
 rate limits, and cost controls remain outside the verifier core.
+
+When a product uses a target outstanding grant count, its adapter supplies the
+current monotonic policy revision to both issuance and first-use consumption.
+The atomic store reconciles excess active unused records before new use, while
+already-consumed exact replay remains valid. AppIntegrityKit defines the port
+semantics; each product owns target values, operational sweep policy, and cost
+admission.
 
 The attestation verifier accepts the exact `clientDataHash` bytes supplied to
 Apple. For protocol v1, the service layer derives those bytes as

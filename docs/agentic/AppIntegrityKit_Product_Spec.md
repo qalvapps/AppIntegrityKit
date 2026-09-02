@@ -33,6 +33,9 @@ shipping a reusable backend credential in an app binary.
 - Extension-safe use of sessions established by a supported host app.
 - One-use delegated submission grants issued only through an already verified,
   short-lived product session and stored in a dedicated shared-Keychain pool.
+- A product-neutral coordinated delegated-grant store that makes each shared
+  pool mutation linearizable across a containing app and its extensions while
+  retaining raw authority only in Keychain.
 - Cryptographic verification primitives and framework-neutral server ports.
 
 ## Out of scope
@@ -42,6 +45,8 @@ shipping a reusable backend credential in an app binary.
 - Product-specific rate limits, data APIs, or provider credentials.
 - Product-specific grant pool sizes, lifetimes, endpoint operations, quotas,
   cost admission, or persistence adapters.
+- Product App Group identifiers, coordination locations, queue policy, or user
+  experience; consumers supply those non-secret product inputs.
 - A shared runtime that accepts tokens for every Qalv product.
 - A client-reported “unsupported device” bypass.
 - Central storage shared between unrelated product backends.
@@ -56,5 +61,11 @@ shipping a reusable backend credential in an app binary.
   keys, altered client data, and environment crossover are rejected.
 - Installation/session records can be revoked without changing app binaries.
 - Delegated grants reject changed-request replay, cross-product/environment use,
-  revoked installations, expiry, exhaustion, and store unavailability while
-  exact lost-response replay returns the original acceptance.
+  explicitly revoked or inactive installations, expiry, exhaustion, and store
+  unavailability while exact lost-response replay returns the original
+  acceptance. Registering a replacement key is not misreported as revocation.
+- A containing app and extension cannot overwrite a committed delegated
+  reservation through a cross-process Keychain read-modify-write race. Existing
+  delegated wire v1 messages and deployed local pool records remain
+  compatible, uncertain commits resolve from a complete pre- or post-operation
+  record, and normal-session-only consumers require no migration.

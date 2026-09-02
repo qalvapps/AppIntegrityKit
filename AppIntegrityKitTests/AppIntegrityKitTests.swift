@@ -623,6 +623,87 @@ struct AppIntegrityKitTests {
         #expect(expired == nil)
     }
 
+    @Test func coordinatedKeychainGrantStoreSerializesIndependentInstances() async throws {
+        let vector = try Self.loadDelegatedGrantVector()
+        let issuedAt = try #require(Self.parseDate(vector.issuedAt))
+        let expiresAt = try #require(Self.parseDate(vector.expectedExpiresAt))
+        let digest = try Base64URL.decode(vector.consumption.requestDigest)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "AppIntegrityKit-(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: false
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let firstCoordinator = try AppGroupFileAppIntegrityDelegatedGrantCoordinator(
+            containerURL: directory
+        )
+        let secondCoordinator = try AppGroupFileAppIntegrityDelegatedGrantCoordinator(
+            containerURL: directory
+        )
+        let service = "AppIntegrityKitTests.(UUID().uuidString)"
+        let firstStore = CoordinatedKeychainAppIntegrityDelegatedGrantStore(
+            service: service,
+            coordinator: firstCoordinator
+        )
+        let secondStore = CoordinatedKeychainAppIntegrityDelegatedGrantStore(
+            service: service,
+            coordinator: secondCoordinator
+        )
+        defer {
+            Task { try? await firstStore.removeAllGrants(
+                for: vector.authority.applicationID
+            ) }
+        }
+        let batch = AppIntegrityDelegatedGrantBatch(
+            protocolVersion: vector.protocolVersion,
+            applicationID: vector.authority.applicationID,
+            environment: .development,
+            operation: vector.policy.operation,
+            grants: vector.tokenMaterial.map {
+                AppIntegrityDelegatedGrantResponseItem(
+                    token: $0,
+                    expiresAt: expiresAt,
+                    useLimit: 1
+                )
+            }
+        )
+        try await firstStore.merge(
+            batch,
+            for: vector.authority.applicationID,
+            at: issuedAt
+        )
+
+        async let first = firstStore.reserveGrant(
+            for: vector.authority.applicationID,
+            environment: .development,
+            operation: vector.policy.operation,
+            submissionID: "independent-process-a",
+            requestBodySHA256: digest,
+            at: issuedAt
+        )
+        async let second = secondStore.reserveGrant(
+            for: vector.authority.applicationID,
+            environment: .development,
+            operation: vector.policy.operation,
+            submissionID: "independent-process-b",
+            requestBodySHA256: digest,
+            at: issuedAt
+        )
+        let reservations = try await [first, second]
+
+        #expect(firstStore.coordinationCapabilityVersion == 1)
+        #expect(secondStore.coordinationCapabilityVersion == 1)
+        #expect(Set(reservations.compactMap { $0?.token }).count == 2)
+        let lockData = try Data(contentsOf: directory.appendingPathComponent(
+            "app-integrity-delegated-grants.lock"
+        ))
+        #expect(lockData.isEmpty)
+        try await firstStore.removeAllGrants(for: vector.authority.applicationID)
+    }
+
     private static func configuration(
         requestedScopes: Set<String> = ["tides:forecast", "tides:licensed-global"]
     ) -> AppIntegrityConfiguration {

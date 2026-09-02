@@ -102,6 +102,8 @@ class DelegatedGrantStore(Protocol):
     one transaction. Exact replay returns the original acceptance ID. Product
     adapters may combine that transaction with their deterministic submission
     record, but product payloads and cost policy do not enter this core port.
+    Product adapters that reduce an outstanding target use the monotonic
+    policy revision carried privately in records and consumption requests.
     """
 
     async def issue(self, records: tuple[DelegatedGrantRecord, ...]) -> None: ...

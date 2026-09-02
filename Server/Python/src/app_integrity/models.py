@@ -141,6 +141,7 @@ class DelegatedGrantPolicy:
     pool_size: int
     lifetime: timedelta
     use_limit: int = 1
+    policy_revision: int = 1
 
     def __post_init__(self) -> None:
         _validate_ascii(self.operation, "operation", 128)
@@ -152,6 +153,11 @@ class DelegatedGrantPolicy:
             raise ValueError("lifetime must be positive and no greater than 24 hours")
         if self.use_limit != 1:
             raise ValueError("delegated submission grants have a one-use limit")
+        if (
+            type(self.policy_revision) is not int
+            or not 1 <= self.policy_revision <= 2_147_483_647
+        ):
+            raise ValueError("policy_revision must be a positive 32-bit integer")
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -164,6 +170,7 @@ class DelegatedGrantRecord:
     issued_at: datetime
     expires_at: datetime
     use_limit: int
+    policy_revision: int = 1
 
     def __post_init__(self) -> None:
         if not isinstance(self.token_hash, bytes) or len(self.token_hash) != 32:
@@ -180,6 +187,11 @@ class DelegatedGrantRecord:
             raise ValueError("expires_at must be after issued_at")
         if self.use_limit != 1:
             raise ValueError("delegated submission grants have a one-use limit")
+        if (
+            type(self.policy_revision) is not int
+            or not 1 <= self.policy_revision <= 2_147_483_647
+        ):
+            raise ValueError("policy_revision must be a positive 32-bit integer")
 
 
 @dataclass(frozen=True, slots=True, repr=False)
@@ -199,6 +211,7 @@ class DelegatedGrantConsumptionRequest:
     request_digest: bytes
     acceptance_id: str
     now: datetime
+    policy_revision: int = 1
 
     def __post_init__(self) -> None:
         if not isinstance(self.token_hash, bytes) or len(self.token_hash) != 32:
@@ -212,6 +225,11 @@ class DelegatedGrantConsumptionRequest:
             raise ValueError("request_digest must be a SHA-256 digest")
         _validate_ascii(self.acceptance_id, "acceptance_id", 256)
         _validate_aware_datetime(self.now, "now")
+        if (
+            type(self.policy_revision) is not int
+            or not 1 <= self.policy_revision <= 2_147_483_647
+        ):
+            raise ValueError("policy_revision must be a positive 32-bit integer")
 
 
 class DelegatedGrantConsumptionStatus(StrEnum):

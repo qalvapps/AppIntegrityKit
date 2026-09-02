@@ -10,6 +10,11 @@
 - [ ] XCFramework packaging and DocC generation pass.
 - [ ] Public Swift API compatibility is reviewed.
 - [ ] Wire-protocol compatibility is explicitly reviewed.
+- [ ] Delegated-store compatibility is explicitly reviewed: existing deployed
+  pool records remain readable, normal-session consumers are unaffected, and a
+  multi-process consumer cannot silently select the single-process adapter for
+  production delegated authority. The coordinated adapter's non-secret
+  capability version is asserted by consumer configuration and release preflight.
 - [ ] New or changed signed bytes have matching Swift/Python test vectors.
 - [ ] No test verifier, bypass, secret, product credential, or customer datum is
   present in release artifacts.
@@ -40,6 +45,25 @@
 - [x] TideTables contains no reusable GoodTides or provider credential.
 
 ## Before 1.0.0
+
+- [ ] The coordinated delegated-grant store passes independent-instance and
+  process-race tests for merge, reserve, remove, expiry pruning, bounded lock
+  failure, and termination immediately before and after Keychain commit. Every
+  uncertain mutation leaves a complete pre- or post-operation record, and
+  reread recovery preserves every committed reservation without selecting a
+  second grant.
+- [ ] Raw delegated authority remains Keychain-only; App Group coordination
+  storage contains no grant, token hash, reservation, submission ID, body
+  digest, session, installation identifier, or product payload.
+- [ ] A reference product canary deliberately removes only its cached normal
+  session after provisioning. Server evidence proves delegated acceptances;
+  durable device evidence separately proves no-authority captures made no
+  request, because the server cannot record an absent request.
+- [ ] Target reduction without later replenishment is exercised at first-use
+  consumption, while exact replay of prior acceptance remains available.
+- [ ] Explicit old-installation revocation rejects its retained test grant.
+  Reinstall/key replacement is tested separately and is not reported as the
+  cause of revocation; residual authority is bounded by configured expiry.
 
 - [ ] TideTables and Recipeez both consume tagged releases.
 - [ ] Recipeez release builds no longer contain worker shared secrets.

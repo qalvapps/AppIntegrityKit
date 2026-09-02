@@ -78,11 +78,50 @@ record using `AfterFirstUnlockThisDeviceOnly`.
 
 First consumption atomically binds the grant to an exact submission ID and the
 SHA-256 digest of the received request body. An exact replay returns the stored
-acceptance without another use or charged operation; a changed request fails
-closed. The transaction also verifies that the bound installation key remains
-active. Product quota and cost admission run independently after grant
-verification. Grant material, token hashes, installation hashes, submission
-IDs, request digests, and source payloads never enter logs or diagnostics.
+acceptance without another use, product work reservation, or cost reservation;
+a changed request fails closed. Provider-stage recovery remains product-owned
+and must not infer exactly-once execution from grant replay. The transaction
+also verifies that the bound installation key remains active. Product quota and
+cost admission run independently after grant verification. Grant material,
+token hashes, installation hashes, submission IDs, request digests, and source
+payloads never enter logs or diagnostics.
+
+### Cross-process delegated-pool lost update
+
+A Swift actor does not serialize a containing app and extension. Without an
+interprocess boundary, each can read the same Keychain pool and a later stale
+write can erase a committed exact reservation or newly merged grant. Products
+sharing a delegated pool must use AppIntegrityKit's coordinated adapter, which
+holds a bounded operating-system-released lock across the entire Keychain
+read/decode/mutate/write operation. The consumer supplies only a non-secret App
+Group coordination location; raw authority and binding metadata remain in
+Keychain. Coordination failure returns no authority and preserves durable local
+capture. Termination during mutation can make completion uncertain; durable
+storage must be the complete pre-operation or complete post-operation record,
+and the next lock owner must reread before choosing authority. Server-side
+atomic consumption remains the final protection against double authority and
+duplicate product work reservation; provider-stage replay safety remains a
+product-owned attempt-ledger concern.
+
+### Key loss mistaken for revocation
+
+App Attest provides no stable cross-key installation identity. Local credential
+deletion, reinstall, or registration of a replacement key does not tell the
+server which older binding to revoke. Deliberate product rotation revokes the
+old binding while old verified authority remains available. After involuntary
+loss, the containing app clears stale local grants when it detects the loss, but
+any stolen old bearer remains valid until explicit installation/grant revocation
+or its original short expiry. Products must monitor and accept that bounded
+residual window rather than claiming replacement itself failed closed.
+
+### Grant-policy reduction race
+
+An offline installation may retain raw grants issued under an older, larger
+target. For target-aware products, first-use consumption as well as issuance
+must reconcile active unused records under the current monotonic server policy
+revision in one serializable store operation. Excess unused grants are revoked
+before new use. Exact replay of already-consumed authority remains valid because
+it cannot start new product work.
 
 ### Development bypass reaching production
 
@@ -97,6 +136,13 @@ environment with separate records and policy.
 - A stolen live session can be used until expiry or revocation.
 - A stolen unused delegated grant can authorize its one bounded operation until
   first use, expiry, installation revocation, or grant revocation.
+- Local App Attest key loss or replacement does not itself revoke old server
+  authority; a stolen old delegated bearer remains within the preceding bounded
+  window.
+- An unavailable interprocess coordinator can delay delegated submission; it
+  cannot authorize a request. Termination during mutation may make completion
+  uncertain, but cannot produce a partial record or lose another process's
+  committed reservation.
 - App Attest does not prove payment, user identity, or benign intent.
 - Availability depends on Apple, the product edge, and persistent storage.
 

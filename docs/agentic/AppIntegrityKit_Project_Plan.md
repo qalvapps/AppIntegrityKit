@@ -64,11 +64,11 @@ configuration or release workflow that AppIntegrityKit must support indefinitely
 
 ## Phase 4 — Recipeez adoption
 
-- [ ] Remove release worker-key injection.
-- [ ] Protect extraction and transcript edges with product sessions.
-- [ ] Provision a narrow session to the Share Extension through an approved
+- [x] Remove release worker-key injection.
+- [x] Protect extraction and transcript edges with product sessions.
+- [x] Provision a narrow session to the Share Extension through an approved
   Keychain access group.
-- [ ] Define the first-use flow when the extension runs before the main app.
+- [x] Define the first-use flow when the extension runs before the main app.
 
 ## Phase 5 — unsupported-extension delegated submission
 
@@ -76,10 +76,25 @@ configuration or release workflow that AppIntegrityKit must support indefinitely
   or session signed bytes.
 - [x] Add a dedicated Swift shared-Keychain pool with exact local request
   reservation and lost-response replay.
+- [x] Add an additive coordinated Keychain adapter whose whole-pool mutations
+  are linearizable across app/extension processes, while preserving the deployed
+  local record and leaving single-process and normal-session consumers
+  compatible. Expose a product-neutral non-secret capability version so
+  multi-process consumer preflight cannot silently select the legacy adapter.
+- [x] Add independent-instance coverage for concurrent merge/reserve behavior,
+  coordinated reread, expiry pruning, and bounded lock failure.
+- [ ] Complete the physical app/extension termination matrix immediately before
+  and after Keychain commit. Prove complete pre/post state and reread recovery
+  rather than assuming an uncertain commit made no change.
 - [x] Add framework-neutral Python issuance/consumption models and atomic store
   ports with shared positive and negative vectors.
-- [ ] Integrate a product edge and extension, preserving independent product
+- [x] Extend the atomic target-aware port so first-use consumption enforces the
+  current monotonic product-policy revision without invalidating exact replay.
+- [x] Integrate the Recipeez product edge and extension locally, preserving independent product
   quota and cost controls.
+- [ ] Define product-adapter revocation tests that distinguish explicit
+  old-binding revocation from local key replacement/reinstall and measure the
+  configured residual grant-expiry window.
 - [ ] Verify physical development behavior and TestFlight production behavior.
 
 ## Release sequence

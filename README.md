@@ -33,6 +33,21 @@ access. It is not yet approved as a generally production-supported package:
 independent security review, the remaining physical/TestFlight recovery matrix,
 and App Store production authorization remain release gates.
 
+AppIntegrityKit provides both the compatible process-local delegated-grant
+Keychain adapter and an additive coordinated adapter for a containing app and
+extension that share one pool. The coordinated adapter serializes every complete
+read/decode/mutate/write operation with a bounded App Group file lock while raw
+authority remains in Keychain. Products must opt in and verify the capability;
+normal sessions, delegated HTTP v1, existing local pool decoding, and consumers
+that do not share a pool between processes are unchanged.
+
+App Attest key replacement or reinstall is not automatic server revocation.
+Products that require immediate deliberate rotation must revoke the old binding
+while old verified authority remains available; involuntary key loss leaves any
+stolen delegated bearer valid only until explicit server revocation or its
+short server-owned expiry. AppIntegrityKit must not invent cross-key identity or
+silently rebind product state.
+
 ## Codex integration workflow
 
 When adopting or hardening AppIntegrityKit in another Qalv app, invoke the
