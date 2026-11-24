@@ -25,7 +25,8 @@ app-integrity-verifier @ git+ssh://git@github.com/qalvapps/AppIntegrityKit.git@6
 When the app's Xcode project is generated (for example with XcodeGen) and
 `*.xcodeproj/` is ignored, `Package.resolved` lives inside the ignored folder at
 `<App>.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
-XcodeGen regeneration keeps the file, but Git will not pick it up: add it with
+Verify that your generation/clean workflow preserves or restores this lockfile.
+Git will not pick an ignored file up: add it with
 `git add -f` (as Pawtrait does) and confirm with `git ls-files`.
 
 Establish authorized private-repository access before resolving either package.
@@ -77,23 +78,43 @@ bundle versions. Keep product and environment trust records isolated. Match
 client routing to server-owned `AllowedApplication`; never derive permission
 from client-supplied identity fields.
 
-Decide the App Attest grammar policy together with the deployment target. The
-verifier requires the iOS 27 grammar by default. Devices running iOS 26 or
-earlier produce the legacy grammar, and the verifier rejects their attestation
-("required App Attest extensions are missing"), so registration fails. Which
-grammar a device produces depends on the OS it runs, not on the app's minimum.
-Either:
+Decide the App Attest grammar policy together with supported OS versions and
+build/distribution configurations. The verifier rejects exact legacy evidence
+by default, for both attestation and assertions, because it lacks the signed
+category/build metadata required by this policy. Apple describes these
+extensions as additions in [iOS 27 (WWDC26, session 201)](https://developer.apple.com/videos/play/wwdc2026/201/).
+Supporting devices still on iOS 26 therefore requires an explicit legacy-policy
+decision; setting an app's minimum deployment target to iOS 26 does not make
+those devices compatible with the default verifier policy.
 
-- require iOS 27 (Pawtrait's choice), or
-- accept iOS 26 devices with `allows_legacy_app_attest=True` on that
-  application **and** the mandatory server-verified compensating authorization
-  (for example an Apple-signed StoreKit transaction), or
-- accept that those devices cannot use protected features until they update.
+Do not infer a universal OS-only or SDK-only rule. The existing GoodTides
+reference records a TestFlight build made with Xcode 26.5 emitting exact legacy
+attestation and assertion evidence on an iOS 27 device; see the repository's
+[recorded reference status](agentic/AppIntegrityKit_Project_Plan.md#phase-1--complete-apple-verification).
+That observation does not establish a controlled SDK/OS compatibility matrix.
+An iOS 27 minimum alone is not proof that a particular build emits extensions.
+Before release, verify registration and subsequent assertion-bound sessions for
+each supported OS/build/distribution configuration. Either:
 
-The studio handbook's new-app baseline is iOS 26, so a new app that follows it
-must make this choice explicitly. The shared studio-backend v0.1.1
-`policy.applications()` builds `AllowedApplication` without the legacy option,
-so the second path needs an app-owned application policy.
+- require a verified extended-evidence configuration (Pawtrait currently uses
+  iOS 27 and has development-device evidence), or
+- explicitly enable `allows_legacy_app_attest=True` for that application and
+  implement mandatory, independently server-verified compensating authorization
+  bound to each session assertion (for example Apple-signed StoreKit evidence
+  checked against the product's accepted app and distribution policy), or
+- make protected features unavailable on unsupported configurations, with a
+  clear product decision and appropriate app behavior.
+
+The studio handbook's iOS 26 baseline does not resolve this choice. Shared
+studio-backend v0.1.1's `policy.applications()` does not expose legacy acceptance,
+and its image `GenerationScopeAuthorizer` rejects entitlement evidence. The
+legacy path needs a reviewed app-owned application policy **and** authorization
+adapter, with tests that deny sessions when compensating evidence is absent,
+invalid or unbound. Merely setting the verifier flag is insufficient; this
+handover update does not add that adapter or change shared runtime policy. Legacy results have
+absent category/build metadata: configured allowlists do not restore those
+signed guarantees. Document which guarantees the compensating control actually
+provides and which remain unavailable.
 
 Add the App Attest capability to the App ID and the
 `com.apple.developer.devicecheck.appattest-environment` entitlement to the app.
@@ -140,10 +161,13 @@ integrity artifacts, session tokens, receipts or user content.
 
 Run `scripts/verify.sh` for package changes and the consuming app/backend's
 checks for integration changes. The script builds its virtual environment from
-the `python3` on `PATH`, which must be 3.12 or newer. On a stock Mac that is
-3.9 and the run stops at the pip upgrade; put a 3.12 interpreter first on
-`PATH` (for example from `uv python install 3.12`). Keep existing consumers
-pinned unless an upgrade is deliberately selected; documentation-only updates do
+the `python3` on `PATH`, which must be 3.12 or newer. Some macOS installations
+resolve `python3` to 3.9, which cannot satisfy this
+package or the script's pip requirement. Check `python3 --version` and put a
+supported interpreter first on `PATH`; `uv python install 3.12` alone installs
+Python but does not guarantee that `python3` resolves to it. For example, with
+`uv` available, run `uv run --python 3.12 --no-project bash scripts/verify.sh`.
+Keep existing consumers pinned unless an upgrade is deliberately selected; documentation-only updates do
 not establish a new runtime release or satisfy unchecked release gates.
 
 The personal `harden-ios-app-integrity` skill mentioned in the README is
