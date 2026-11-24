@@ -1,5 +1,17 @@
 # AppIntegrityKit Consumer Adoption Plan
 
+## Current adoption status — 2026-11-24
+
+This document records required work, not a completed implementation. Additional
+consumers now exist: Pawtrait has verified development-device integration through
+studio-backend. That evidence does not complete the manifest, migration,
+cross-product isolation or release-preflight gates below. The original
+"before a second product" sequencing is a historical target, not a claim that
+adoption has remained blocked or that these requirements have been satisfied.
+
+Use the [integration handover](../INTEGRATION-HANDOFF.md) for current package
+pins, portable setup, reference consumers and explicit verification limits.
+
 ## Priority
 
 This is a release-blocking engineering task to complete before integrating a

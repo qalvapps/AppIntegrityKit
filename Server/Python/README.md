@@ -3,6 +3,9 @@
 Framework-neutral Apple App Attest verification for AppIntegrityKit product
 backends.
 
+See the [integration handover](../../docs/INTEGRATION-HANDOFF.md) for remote
+installation, tested revisions and shared-backend adapters.
+
 The package provides strict protocol parsing, binding validation, server-owned
 application policy, Apple-root-pinned attestation verification, assertion
 signature and counter verification, and persistence ports. There is no

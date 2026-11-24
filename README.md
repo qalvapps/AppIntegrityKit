@@ -67,20 +67,20 @@ checklist remain authoritative.
 
 ## Swift Package
 
-During local development:
-
-```swift
-.package(path: "../AppIntegrityKit")
-```
-
-After the first tagged release:
+For adoption on another machine, start with the [integration handover](docs/INTEGRATION-HANDOFF.md).
+Use a remote immutable revision until a reviewed tagged release is available:
 
 ```swift
 .package(
     url: "https://github.com/qalvapps/AppIntegrityKit.git",
-    from: "0.1.0"
+    revision: "6d84b9c0af30b5ed43df6f7d4e4d741f16127e49"
 )
 ```
+
+This private repository requires an authorized GitHub identity before package
+resolution. Commit the consuming app's `Package.resolved`. A sibling checkout
+is an optional package-development override, not a portable app dependency.
+Do not select an unpublished `0.1.0` tag or silently upgrade an existing pin.
 
 Apps import the single public library:
 
