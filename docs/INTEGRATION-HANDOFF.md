@@ -22,6 +22,12 @@ resolve and lock the canonical verifier rather than copying its source:
 app-integrity-verifier @ git+ssh://git@github.com/qalvapps/AppIntegrityKit.git@6d84b9c0af30b5ed43df6f7d4e4d741f16127e49#subdirectory=Server/Python
 ```
 
+When the app's Xcode project is generated (for example with XcodeGen) and
+`*.xcodeproj/` is ignored, `Package.resolved` lives inside the ignored folder at
+`<App>.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+XcodeGen regeneration keeps the file, but Git will not pick it up: add it with
+`git add -f` (as Pawtrait does) and confirm with `git ls-files`.
+
 Establish authorized private-repository access before resolving either package.
 SSH is supported; for machines using GitHub CLI HTTPS credentials, the shared
 backend [handoff](https://github.com/qalvapps/studio-backend/blob/1fc38fa97e6f0b8b8f7723e1c5ad74c3e967260d/docs/OTHER-APP-HANDOFF.md)
@@ -71,6 +77,33 @@ bundle versions. Keep product and environment trust records isolated. Match
 client routing to server-owned `AllowedApplication`; never derive permission
 from client-supplied identity fields.
 
+Decide the App Attest grammar policy together with the deployment target. The
+verifier requires the iOS 27 grammar by default. Devices running iOS 26 or
+earlier produce the legacy grammar, and the verifier rejects their attestation
+("required App Attest extensions are missing"), so registration fails. Which
+grammar a device produces depends on the OS it runs, not on the app's minimum.
+Either:
+
+- require iOS 27 (Pawtrait's choice), or
+- accept iOS 26 devices with `allows_legacy_app_attest=True` on that
+  application **and** the mandatory server-verified compensating authorization
+  (for example an Apple-signed StoreKit transaction), or
+- accept that those devices cannot use protected features until they update.
+
+The studio handbook's new-app baseline is iOS 26, so a new app that follows it
+must make this choice explicitly. The shared studio-backend v0.1.1
+`policy.applications()` builds `AllowedApplication` without the legacy option,
+so the second path needs an app-owned application policy.
+
+Add the App Attest capability to the App ID and the
+`com.apple.developer.devicecheck.appattest-environment` entitlement to the app.
+Set its value per build configuration (Pawtrait uses
+`$(PAWTRAITMODE_ATTEST_ENVIRONMENT)`: `development` for Debug, `production` for
+Release) and confirm it in the signed product, for example with
+`codesign -d --entitlements - <App>.app`. Keychain records are keyed by
+routing application ID, so distinct development and production IDs keep their
+keys apart.
+
 Inspect the signed product: App ID prefix can differ from Team ID. Pawtrait's
 verified development identifier is `8TY3Z59576.com.paulcalver.pawtraitmode`;
 this is evidence for that app, not a value to copy. Copy neither its cloud
@@ -106,6 +139,14 @@ product/environment isolation and the remaining recovery matrix. Do not log raw
 integrity artifacts, session tokens, receipts or user content.
 
 Run `scripts/verify.sh` for package changes and the consuming app/backend's
-checks for integration changes. Keep existing consumers pinned unless an
-upgrade is deliberately selected; documentation-only updates do not establish
-a new runtime release or satisfy unchecked release gates.
+checks for integration changes. The script builds its virtual environment from
+the `python3` on `PATH`, which must be 3.12 or newer. On a stock Mac that is
+3.9 and the run stops at the pip upgrade; put a 3.12 interpreter first on
+`PATH` (for example from `uv python install 3.12`). Keep existing consumers
+pinned unless an upgrade is deliberately selected; documentation-only updates do
+not establish a new runtime release or satisfy unchecked release gates.
+
+The personal `harden-ios-app-integrity` skill mentioned in the README is
+optional execution guidance and is not installed on every machine. This
+handover, the protocol, threat model, adoption plan and release checklist are
+sufficient to integrate without it.

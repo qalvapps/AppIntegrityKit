@@ -85,7 +85,8 @@ The returned Apple receipt remains an opaque artifact for the product backend
 to store and independently submit to Apple's fraud-assessment service. This
 package does not treat the receipt as authorization.
 
-Run tests:
+Run tests with Python 3.12 or newer (a stock macOS `python3` is 3.9; use, for
+example, `uv venv --python 3.12 .venv` instead of the first line):
 
 ```bash
 python3 -m venv .venv
