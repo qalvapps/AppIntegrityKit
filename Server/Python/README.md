@@ -85,11 +85,19 @@ The returned Apple receipt remains an opaque artifact for the product backend
 to store and independently submit to Apple's fraud-assessment service. This
 package does not treat the receipt as authorization.
 
-Run tests:
+Run tests with Python 3.12 or newer. Check the interpreter explicitly; some
+macOS installations resolve `python3` to an unsupported version. With `uv`
+available, this creates the environment using the requested Python:
 
 ```bash
-python3 -m venv .venv
+uv venv --python 3.12 .venv
 . .venv/bin/activate
-pip install -e '.[dev]'
-pytest
+```
+
+Alternatively, use `python3.12 -m venv .venv` and activate it. A `uv` environment
+may not include pip; install and run the tests directly with:
+
+```bash
+uv pip install --python .venv/bin/python -e '.[dev]'
+.venv/bin/python -m pytest
 ```

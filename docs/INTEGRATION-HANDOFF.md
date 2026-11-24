@@ -22,6 +22,13 @@ resolve and lock the canonical verifier rather than copying its source:
 app-integrity-verifier @ git+ssh://git@github.com/qalvapps/AppIntegrityKit.git@6d84b9c0af30b5ed43df6f7d4e4d741f16127e49#subdirectory=Server/Python
 ```
 
+When the app's Xcode project is generated (for example with XcodeGen) and
+`*.xcodeproj/` is ignored, `Package.resolved` lives inside the ignored folder at
+`<App>.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+Verify that your generation/clean workflow preserves or restores this lockfile.
+Git will not pick an ignored file up: add it with
+`git add -f` (as Pawtrait does) and confirm with `git ls-files`.
+
 Establish authorized private-repository access before resolving either package.
 SSH is supported; for machines using GitHub CLI HTTPS credentials, the shared
 backend [handoff](https://github.com/qalvapps/studio-backend/blob/1fc38fa97e6f0b8b8f7723e1c5ad74c3e967260d/docs/OTHER-APP-HANDOFF.md)
@@ -71,6 +78,53 @@ bundle versions. Keep product and environment trust records isolated. Match
 client routing to server-owned `AllowedApplication`; never derive permission
 from client-supplied identity fields.
 
+Decide the App Attest grammar policy together with supported OS versions and
+build/distribution configurations. The verifier rejects exact legacy evidence
+by default, for both attestation and assertions, because it lacks the signed
+category/build metadata required by this policy. Apple describes these
+extensions as additions in [iOS 27 (WWDC26, session 201)](https://developer.apple.com/videos/play/wwdc2026/201/).
+Supporting devices still on iOS 26 therefore requires an explicit legacy-policy
+decision; setting an app's minimum deployment target to iOS 26 does not make
+those devices compatible with the default verifier policy.
+
+Do not infer a universal OS-only or SDK-only rule. The existing GoodTides
+reference records a TestFlight build made with Xcode 26.5 emitting exact legacy
+attestation and assertion evidence on an iOS 27 device; see the repository's
+[recorded reference status](agentic/AppIntegrityKit_Project_Plan.md#phase-1--complete-apple-verification).
+That observation does not establish a controlled SDK/OS compatibility matrix.
+An iOS 27 minimum alone is not proof that a particular build emits extensions.
+Before release, verify registration and subsequent assertion-bound sessions for
+each supported OS/build/distribution configuration. Either:
+
+- require a verified extended-evidence configuration (Pawtrait currently uses
+  iOS 27 and has development-device evidence), or
+- explicitly enable `allows_legacy_app_attest=True` for that application and
+  implement mandatory, independently server-verified compensating authorization
+  bound to each session assertion (for example Apple-signed StoreKit evidence
+  checked against the product's accepted app and distribution policy), or
+- make protected features unavailable on unsupported configurations, with a
+  clear product decision and appropriate app behavior.
+
+The studio handbook's iOS 26 baseline does not resolve this choice. Shared
+studio-backend v0.1.1's `policy.applications()` does not expose legacy acceptance,
+and its image `GenerationScopeAuthorizer` rejects entitlement evidence. The
+legacy path needs a reviewed app-owned application policy **and** authorization
+adapter, with tests that deny sessions when compensating evidence is absent,
+invalid or unbound. Merely setting the verifier flag is insufficient; this
+handover update does not add that adapter or change shared runtime policy. Legacy results have
+absent category/build metadata: configured allowlists do not restore those
+signed guarantees. Document which guarantees the compensating control actually
+provides and which remain unavailable.
+
+Add the App Attest capability to the App ID and the
+`com.apple.developer.devicecheck.appattest-environment` entitlement to the app.
+Set its value per build configuration (Pawtrait uses
+`$(PAWTRAITMODE_ATTEST_ENVIRONMENT)`: `development` for Debug, `production` for
+Release) and confirm it in the signed product, for example with
+`codesign -d --entitlements - <App>.app`. Keychain records are keyed by
+routing application ID, so distinct development and production IDs keep their
+keys apart.
+
 Inspect the signed product: App ID prefix can differ from Team ID. Pawtrait's
 verified development identifier is `8TY3Z59576.com.paulcalver.pawtraitmode`;
 this is evidence for that app, not a value to copy. Copy neither its cloud
@@ -106,6 +160,17 @@ product/environment isolation and the remaining recovery matrix. Do not log raw
 integrity artifacts, session tokens, receipts or user content.
 
 Run `scripts/verify.sh` for package changes and the consuming app/backend's
-checks for integration changes. Keep existing consumers pinned unless an
-upgrade is deliberately selected; documentation-only updates do not establish
-a new runtime release or satisfy unchecked release gates.
+checks for integration changes. The script builds its virtual environment from
+the `python3` on `PATH`, which must be 3.12 or newer. Some macOS installations
+resolve `python3` to 3.9, which cannot satisfy this
+package or the script's pip requirement. Check `python3 --version` and put a
+supported interpreter first on `PATH`; `uv python install 3.12` alone installs
+Python but does not guarantee that `python3` resolves to it. For example, with
+`uv` available, run `uv run --python 3.12 --no-project bash scripts/verify.sh`.
+Keep existing consumers pinned unless an upgrade is deliberately selected; documentation-only updates do
+not establish a new runtime release or satisfy unchecked release gates.
+
+The personal `harden-ios-app-integrity` skill mentioned in the README is
+optional execution guidance and is not installed on every machine. This
+handover, the protocol, threat model, adoption plan and release checklist are
+sufficient to integrate without it.

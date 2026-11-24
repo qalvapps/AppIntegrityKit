@@ -13,7 +13,9 @@ The repository has two deliverables:
 - `AppIntegrityKit`: a Swift Package consumed by iOS and watchOS apps.
 - `app-integrity-verifier`: a Python package consumed by product backends.
 
-TideTables/GoodTides is the first reference integration. Recipeez is the second.
+TideTables/GoodTides is the first reference integration. Pawtrait has a
+verified development-device integration through the shared studio backend; see
+the [integration handover](docs/INTEGRATION-HANDOFF.md) for current consumers.
 Apps share implementation and protocol, never keys, sessions, entitlements, or
 backend trust stores.
 
@@ -51,7 +53,9 @@ silently rebind product state.
 ## Codex integration workflow
 
 When adopting or hardening AppIntegrityKit in another Qalv app, invoke the
-personal Codex skill `$harden-ios-app-integrity`. It provides the app-integration,
+personal Codex skill `$harden-ios-app-integrity` where it is installed (it is
+not available on every machine; the handover lists the documents that suffice
+without it). It provides the app-integration,
 fail-closed Release configuration, built-product inspection, physical-device,
 and TestFlight verification workflow used by the reference implementations.
 
